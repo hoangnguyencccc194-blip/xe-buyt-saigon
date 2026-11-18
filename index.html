@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Xe Buýt Sài Gòn – Game quản lý xe buýt TP.HCM</title>
+<link rel="icon" href="assets/tw-1f68d.svg">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+<canvas id="fx"></canvas>
+<div id="tint"></div>
+<canvas id="rain"></canvas>
+
+<header id="hud">
+  <div class="hud-row">
+    <div class="pill money"><img src="assets/tw-1f4b0.svg" alt=""><span id="money">0</span></div>
+    <div class="pill clock"><span id="dayicon">☀️</span><span id="clock">05:00</span><small id="daylbl">Ngày 1</small></div>
+    <div class="speed">
+      <button data-sp="0" aria-label="Tạm dừng">⏸</button>
+      <button data-sp="1" class="on" aria-label="Tốc độ 1x">▶</button>
+      <button data-sp="3" aria-label="Tốc độ 3x">⏩</button>
+    </div>
+  </div>
+  <div class="hud-row">
+    <div class="pill lvl"><img src="assets/tw-1f3c6.svg" alt=""><b id="lvl">1</b><div class="bar"><i id="xpbar"></i></div></div>
+    <div class="pill sat"><img src="assets/tw-2b50.svg" alt=""><span id="sat">70%</span></div>
+    <div class="pill pax"><img src="assets/tw-1f465.svg" alt=""><span id="paxnow">0</span></div>
+  </div>
+  <div id="event" class="hidden"></div>
+</header>
+
+<section id="sheet" class="closed">
+  <div class="grab"></div>
+  <div id="sheet-body"></div>
+</section>
+
+<nav id="tabs">
+  <button data-tab="map" class="on"><span>🗺️</span>Bản đồ</button>
+  <button data-tab="routes"><span>🚏</span>Tuyến</button>
+  <button data-tab="fleet"><span>🚌</span>Đội xe</button>
+  <button data-tab="finance"><span>📊</span>Tài chính</button>
+  <button data-tab="more"><span>⚙️</span>Thêm</button>
+</nav>
+
+<div id="toasts"></div>
+<div id="modal" class="hidden"></div>
+<div id="loading"><div class="logo">🚌</div><h1>Xe Buýt Sài Gòn</h1><p>Đang tải bản đồ và tuyến thật…</p></div>
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/maplibre-gl.js"></script>
+<script src="vendor/leaflet-maplibre-gl.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

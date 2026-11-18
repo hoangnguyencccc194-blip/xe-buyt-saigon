@@ -1,0 +1,92 @@
+[
+ {
+  "what": "Dữ liệu tuyến & trạm xe buýt",
+  "title": "OpenStreetMap (Overpass API)",
+  "author": "© OpenStreetMap contributors",
+  "license": "ODbL 1.0",
+  "licenseUrl": "https://opendatacommons.org/licenses/odbl/",
+  "source": "https://www.openstreetmap.org/copyright"
+ },
+ {
+  "what": "Nền bản đồ",
+  "title": "OpenFreeMap \"Liberty\" (vector tiles, OpenMapTiles schema)",
+  "author": "OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors",
+  "license": "Free, no key; attribution required (data ODbL, OpenMapTiles CC-BY 4.0)",
+  "licenseUrl": "https://openfreemap.org/",
+  "source": "https://openfreemap.org/"
+ },
+ {
+  "what": "Thư viện bản đồ",
+  "title": "Leaflet 1.9.4",
+  "author": "Volodymyr Agafonkin & contributors",
+  "license": "BSD-2-Clause",
+  "licenseUrl": "https://github.com/Leaflet/Leaflet/blob/main/LICENSE",
+  "source": "https://leafletjs.com"
+ },
+ {
+  "what": "Hiển thị bản đồ vector",
+  "title": "MapLibre GL JS 4.7.1 + maplibre-gl-leaflet",
+  "author": "MapLibre contributors",
+  "license": "BSD-3-Clause / ISC",
+  "licenseUrl": "https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt",
+  "source": "https://maplibre.org"
+ },
+ {
+  "what": "Ảnh xe buýt nhỏ",
+  "title": "(VNM-Ho Chi Minh City) Hop Tac Xa Van Tai 19-5 51B-323.20 19 2025-10-05.jpg",
+  "author": "S5A-0043",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:(VNM-Ho_Chi_Minh_City)_Hop_Tac_Xa_Van_Tai_19-5_51B-323.20_19_2025-10-05.jpg",
+  "file": "assets/bus-mini.jpg",
+  "note": "Resized to 500px width"
+ },
+ {
+  "what": "Ảnh xe buýt thường",
+  "title": "(VNM-Ho Chi Minh City) SaigonBus 50H-365.23 06 2025-10-04.jpg",
+  "author": "S5A-0043",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:(VNM-Ho_Chi_Minh_City)_SaigonBus_50H-365.23_06_2025-10-04.jpg",
+  "file": "assets/bus-std.jpg",
+  "note": "Resized to 500px width"
+ },
+ {
+  "what": "Ảnh xe buýt CNG (minh họa)",
+  "title": "(VNM-Ho Chi Minh City) Citranco 51B-165.68 72 2025-10-05.jpg",
+  "author": "S5A-0043",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:(VNM-Ho_Chi_Minh_City)_Citranco_51B-165.68_72_2025-10-05.jpg",
+  "file": "assets/bus-cng.jpg",
+  "note": "Resized to 500px width"
+ },
+ {
+  "what": "Ảnh xe buýt điện",
+  "title": "(VNM-Ho Chi Minh City) Vinbus 50F-017.44 D4 2025-10-05.jpg",
+  "author": "S5A-0043",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:(VNM-Ho_Chi_Minh_City)_Vinbus_50F-017.44_D4_2025-10-05.jpg",
+  "file": "assets/bus-ev.jpg",
+  "note": "Resized to 500px width"
+ },
+ {
+  "what": "Ảnh xe buýt 2 tầng",
+  "title": "HCMC double-decker bus.jpg",
+  "author": "Dragfyre",
+  "license": "CC BY-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:HCMC_double-decker_bus.jpg",
+  "file": "assets/bus-dd.jpg",
+  "note": "Resized to 500px width"
+ },
+ {
+  "what": "Biểu tượng emoji (tiền, cúp, sao, người)",
+  "title": "Twemoji",
+  "author": "Twitter, Inc. and other contributors (jdecked/twemoji)",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "source": "https://github.com/jdecked/twemoji"
+ }
+]
