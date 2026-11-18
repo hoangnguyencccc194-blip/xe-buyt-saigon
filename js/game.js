@@ -20,14 +20,14 @@ const LEVEL_XP=[0,800,2500,5000,8500,13000,19000,26000,35000,46000,60000,76000,9
 const FESTIVALS=['Lễ hội Áo dài','Đêm nhạc phố đi bộ','Hội chợ ẩm thực đường phố','Lễ hội Trung thu','Ngày hội sinh viên','Lễ hội Tết Nguyên đán','Lễ hội bánh dân gian','Đêm hội pháo hoa'];
 const CENTER=[10.7769,106.7009];
 const FACTORS=[
-  {k:'wait',n:'Thời gian chờ',ic:'stop',w:.17,tip:'Thêm xe cho tuyến để khách không phải chờ lâu ở trạm.'},
+  {k:'wait',n:'Thời gian chờ',ic:'stop',w:.17,tip:'Thêm xe cho tuyến; lắp ghế chờ, đèn và bảng điện tử báo giờ xe ở trạm.'},
   {k:'freq',n:'Tần suất chuyến',ic:'calendar',w:.13,tip:'Tuyến dài cần nhiều xe và đủ tài xế cả hai ca.'},
   {k:'crowd',n:'Độ chật trên xe',ic:'people',w:.15,tip:'Xe quá tải: dùng xe lớn hơn (CNG, 2 tầng) hoặc thêm xe.'},
-  {k:'comfort',n:'Tiện nghi xe',ic:'bus',w:.12,tip:'Xe điện, máy lạnh & wifi và tài xế giỏi làm khách vui hơn.'},
-  {k:'shelter',n:'Mái che trạm',ic:'shelter',w:.10,tip:'Bấm vào trạm đông khách để xây mái che.'},
+  {k:'comfort',n:'Tiện nghi xe',ic:'bus',w:.12,tip:'Xe điện, máy lạnh & wifi, tài xế giỏi, trạm có cây xanh và khu rửa xe ở bãi.'},
+  {k:'shelter',n:'Mái che trạm',ic:'shelter',w:.10,tip:'Bấm vào trạm để mở ô nâng cấp, hoặc nâng cấp cả tuyến trong bảng tuyến.'},
   {k:'weather',n:'Mưa & kẹt xe',ic:'rain',w:.10,tip:'Mái che và làn xe buýt riêng giúp khách đỡ bực khi mưa, kẹt xe.'},
   {k:'fare',n:'Giá vé',ic:'ticket',w:.13,tip:'Giá vé cao làm khách khó chịu và đi ít hơn.'},
-  {k:'reliab',n:'Đúng giờ',ic:'jam',w:.10,tip:'Bảo dưỡng xe để tránh hư giữa đường; đèn ưu tiên giúp xe đúng giờ.'},
+  {k:'reliab',n:'Đúng giờ',ic:'jam',w:.10,tip:'Bảo dưỡng xe; đèn ưu tiên, bảng điện tử và vịnh đỗ ở trạm giúp xe đúng giờ.'},
 ];
 const UPGRADES={
   lane:{n:'Làn xe buýt riêng',ic:'lane',d:'Xe chạy nhanh hơn 25%, gần như không bị kẹt xe giờ cao điểm.',cost:r=>Math.round(r.km*400000/1e5)*1e5,lvl:2},
@@ -64,6 +64,9 @@ const ACH=[
   {id:'s90',n:'Khách rất vui',d:'Hài lòng đạt 90%',ic:'star',ok:s=>s.sat>=90&&Object.keys(s.opened).length>0,rw:5e6},
   {id:'sh1',n:'Che mưa che nắng',d:'Xây 1 mái che',ic:'shelter',ok:s=>Object.keys(s.shelters).length>=1,rw:5e5},
   {id:'sh10',n:'Trạm chờ văn minh',d:'Xây 10 mái che',ic:'shelter',ok:s=>Object.keys(s.shelters).length>=10,rw:4e6},
+  {id:'su20',n:'Trạm chờ hiện đại',d:'Làm 20 hạng mục nâng cấp trạm',ic:'board',ok:s=>(s.stat.stopUps||0)>=20,rw:3e6},
+  {id:'su6',n:'Trạm 5 sao',d:'Một trạm có đủ 6 nâng cấp',ic:'star',ok:s=>Object.keys(s.stopUp||{}).some(si=>s.shelters[si]&&Object.keys(s.stopUp[si]).length>=5),rw:2e6},
+  {id:'du1',n:'Bãi xe xịn',d:'Nâng cấp bãi xe lần đầu',ic:'wrench',ok:s=>(s.stat.depotUps||0)>=1,rw:1e6},
   {id:'cu1',n:'Nhà quy hoạch',d:'Tự tạo 1 tuyến riêng',ic:'newroute',ok:s=>(s.custom||[]).length>=1,rw:2e6},
   {id:'ev5',n:'Thành phố xanh',d:'Có 5 xe buýt điện',ic:'bolt',ok:s=>s.buses.filter(b=>b.m==='ev').length>=5,rw:1e7},
   {id:'dd1',n:'Ngắm phố trên cao',d:'Mua xe 2 tầng',ic:'bus_dd',ok:s=>s.buses.some(b=>b.m==='dd'),rw:3e6},
@@ -97,7 +100,7 @@ function newLedger(d){return {day:d,fare:0,sub:0,fuel:0,upk:0,build:0,bonus:0,wa
 function newState(){ return {v:3,money:START_MONEY,t:6*60,xp:0,level:1,sat:70,opened:{},buses:[],shelters:{},waiting:{},nextId:1,
   ledger:[newLedger(1)],paxTotal:0,event:null,seen:{},fare:7000,rsat:{},opt:{fps:60,sfx:1,music:0,fs:'md',automaint:1},
   drivers:[],cands:[],depots:['bt'],custom:[],missions:null,weekly:null,ach:{},contracts:{offers:[],active:[]},loans:[],
-  comp:{name:'Xe buýt Phương Nam',buses:4,routes:[],sat:62,pax:0},notes:[],fc:[],rec:{},stat:{},ss:{},td:{}}; }
+  stopUp:{},depotUp:{},comp:{name:'Xe buýt Phương Nam',buses:4,routes:[],sat:62,pax:0},notes:[],fc:[],rec:{},stat:{},ss:{},td:{}}; }
 function genDriver(){ const skill=clamp(Math.round(1+Math.random()*3.2+(S?S.level*.08:0)),1,5);
   return {id:S.nextId++,name:rnd(HO)+' '+rnd(DEM)+' '+rnd(TEN),skill,shift:'full',bus:null,wage:250000+skill*90000}; }
 function driverWage(d){ return d.wage*SHIFTS[d.shift].mul; }
@@ -169,7 +172,7 @@ let servedCache=null;
 function servedStops(){ if(servedCache) return servedCache; const set=new Set(); for(const r of openRoutes()) r.allStops.forEach(s=>set.add(s)); return servedCache=[...set]; }
 const busCount=ref=>S.buses.reduce((a,b)=>a+(b.r===ref),0);
 const rsat=ref=>(S.rsat[ref]&&S.rsat[ref].s)??70;
-const fleetCap=()=>S.depots.length*DEPOT_CAP;
+const fleetCap=()=>S.depots.reduce((a,id)=>a+DEPOT_CAP+(hasDU(id,'expand')?5:0),0);
 function nearDepot(r){ for(const id of S.depots){ const dp=D.depotById[id]; if(!dp) continue; for(let i=0;i<r.dirs[0].g.length;i+=3) if(dist(r.dirs[0].g[i],dp.p)<2500) return dp; } return null; }
 /* ---------- Drivers / bus status ---------- */
 function busDrivers(b){ return S.drivers.filter(d=>d.bus===b.id); }
@@ -197,12 +200,15 @@ function computeRouteSat(r){
   f.freq=n?clamp(100-(headway-15)*.9,0,100):(hour()>=22||hour()<5?60:0);
   f.crowd=n?clamp(100-act.reduce((a,b)=>a+Math.max(0,b.l/MODELS[b.m].cap-.75),0)/n*250,0,100):50;
   let cf=buses.length?buses.reduce((a,b)=>{ const d=activeDriver(b); return a+MODELS[b.m].comfort+(d?(d.skill-3)*4-(d.shift==='full'?4:0):0); },0)/buses.length:50;
-  f.comfort=clamp(cf+(up.ac?12:0),0,100);
+  const su=routeSU(r), night=hour()<5.5||hour()>=18.5, dpo=routeDepot(r);
+  f.wait=clamp(f.wait+8*su.bench+14*su.board+(night?6:2)*su.light,0,100);
+  f.comfort=clamp(cf+(up.ac?12:0)+5*su.bench+6*su.green+(night?8:3)*su.light+(dpo&&hasDU(dpo.id,'wash')?6:0),0,100);
   const sh=r.allStops.filter(si=>S.shelters[si]).length/r.allStops.length, shf=Math.min(1,sh*2.5); f.shelter=35+65*shf;
   const e=S.event, jam=e&&e.type==='jam'&&e.route===r.ref; f.weather=100;
-  if(raining()) f.weather=100-(wxNow()==='storm'?75:60)*(1-shf); if(jam) f.weather=Math.min(f.weather,up.lane?80:45);
+  if(raining()) f.weather=100-(wxNow()==='storm'?75:60)*(1-shf); if(jam) f.weather=Math.min(f.weather,(up.lane?80:45)+18*su.bay);
   f.fare=FARE_SAT[S.fare];
-  f.reliab=clamp((isRush(hour())?(up.lane?90:72):95)+(up.signal?15:0)-(jam?(up.lane?10:35):0)-(raining()?10:0)-(o.bd||0)*8-(S.comp.routes.includes(r.ref)?5:0),0,100);
+  const relB=6*su.board+10*su.bay;
+  f.reliab=clamp((isRush(hour())?(up.lane?90:72):95)+(up.signal?15:0)-(jam?(up.lane?10:35):0)-(raining()?10:0)-(o.bd||0)*8-(S.comp.routes.includes(r.ref)?5:0)+relB,0,100);
   let target=0; for(const F of FACTORS) target+=F.w*f[F.k];
   return {target,f,headway};
 }
@@ -212,7 +218,7 @@ function updateSat(rate){
     o.s=clamp(o.s+(c.target-o.s)*rate,0,100); o.f=c.f; o.hw=c.headway; const w=1+(S.opened[r.ref].pax||0); tot+=o.s*w; wt+=w; }
   if(wt) S.sat=tot/wt;
 }
-function stopMood(si){ const w=S.waiting[si]||0, sh=S.shelters[si]; let m=100-w*1.3+(sh?10:0); if(raining()&&!sh) m-=25; return clamp(m,0,100); }
+function stopMood(si){ const w=S.waiting[si]||0, sh=S.shelters[si]; let m=100-w*1.3+(sh?10:0)+suMood(si); if(raining()&&!sh) m-=25; return clamp(m,0,100); }
 function stopSatFactor(si){ let best=0, comp=false; for(const ref of stopRoutes[si]) if(S.opened[ref]){ best=Math.max(best,rsat(ref)); if(S.comp.routes.includes(ref)) comp=true; } return (.5+best/100)*(comp?.8:1); }
 
 /* ---------- Simulation ---------- */
@@ -220,7 +226,7 @@ function eventSpeed(r){ let f=1; const e=S.event, up=S.opened[r.ref].up||{};
   if(raining()) f*=wxNow()==='storm'?.78:.86; if(e&&e.type==='jam'&&e.route===r.ref) f*=up.lane?.85:.45; if(isRush(hour())) f*=up.lane?.96:.8; if(up.lane) f*=1.25; return f; }
 function spawnFactor(si){
   let f=hourFactor(hour())*stopSatFactor(si)*FARE_DEMAND[S.fare];
-  if(S.shelters[si]) f*=1.15;
+  if(S.shelters[si]) f*=1.15; f*=suSpawn(si);
   if(raining()) f*=S.shelters[si]?1.25:.9;
   const e=S.event; if(e&&e.type==='fest'&&dist([D.stops[si][1],D.stops[si][2]],e.p)<1600) f*=3;
   return f;
@@ -240,7 +246,7 @@ function step(dt){
     const dr=r.dirs[b.dir], before=b.s;
     b.s+=M.speed*eventSpeed(r)*(.94+.03*drv.skill)*dt;
     if(b.s>=dr.sd[b.k]){ b.s=dr.sd[b.k]; arrive(b,r,M); }
-    const km=Math.max(0,b.s-before)/1000; b.km+=km; addMoney(-M.fuel*km,'fuel'); addMoney(SUBSIDY_KM*km,'sub');
+    const km=Math.max(0,b.s-before)/1000; b.km+=km; addMoney(-M.fuel*km*(b.m==='ev'&&(()=>{const d=routeDepot(r); return d&&hasDU(d.id,'charge');})()?.6:1),'fuel'); addMoney(SUBSIDY_KM*km,'sub');
     b.cond=Math.max(0,(b.cond??100)-km*.07);
     if(Math.random()<.00003*dt*(1+(100-b.cond)/12)*(1.4-.1*drv.skill)*M.rel*(raining()?1.3:1)) breakdown(b,r);
     else if(S.opt.automaint&&b.cond<35&&b.dw<=0&&b.l===0) startMaint(b,true);
@@ -267,15 +273,15 @@ function arrive(b,r,M){
     for(const c of S.contracts.active) if(nearSet(c).has(si)) c.prog+=on;
     if(on>=3&&floaters.length<20) floaters.push({lat:D.stops[si][1],lng:D.stops[si][2],txt:'+'+fmt(rev),life:1});
     if(on>=12) sfx('coin'); checkLevel(); }
-  b.dw=.8+(on+off)*.08;
+  b.dw=(.8+(on+off)*.08)*(hasSU(si,'bay')?.7:1);
 }
 function breakdown(b,r){ b.st='broken'; b.until=S.t+60; b.lost=b.l; b.l=0; b.dest={}; S.opened[r.ref].bd=(S.opened[r.ref].bd||0)+1; S.rsat[r.ref]&&(S.rsat[r.ref].s=Math.max(0,S.rsat[r.ref].s-4));
   S.stat.breakdowns=(S.stat.breakdowns||0)+1; notify(`Xe #${b.id} (tuyến ${r.ref}) bị hư giữa đường! Gọi cứu hộ ngay`,'broken',true); sfx('bad'); news(`Một xe buýt tuyến ${r.ref} gặp sự cố kỹ thuật, hành khách chuyển sang xe khác.`); }
 function towBus(b,auto){ if(b.st!=='broken') return; const r=routeById[b.r], dp=r&&nearDepot(r), M=MODELS[b.m];
-  const cost=Math.round(((dp?300000:600000)*(auto?1.5:1)+M.price*.02)/1e4)*1e4; addMoney(-cost,'repair');
-  b.st='repair'; b.until=S.t+(dp?45:90); notify(`${auto?'Tự động gọi':'Đã gọi'} cứu hộ xe #${b.id} về ${dp?dp.n:'xưởng'} (${fmt(cost)})`,'tow'); save(); }
-function startMaint(b,auto){ if(b.st!=='ok') return; const M=MODELS[b.m], r=b.r&&routeById[b.r], dp=r&&nearDepot(r); const cost=Math.round(M.price*.03/1e4)*1e4;
-  if(S.money<cost&&!auto) return toast('Không đủ tiền bảo dưỡng','coin'); addMoney(-cost,'repair'); b.st='maint'; b.until=S.t+(dp?60:120); b.l=0; b.dest={};
+  const wk=dp&&hasDU(dp.id,'work'); const cost=Math.round(((dp?300000:600000)*(auto?1.5:1)+M.price*.02)*(wk?.75:1)/1e4)*1e4; addMoney(-cost,'repair');
+  b.st='repair'; b.until=S.t+(dp?45:90)*(wk?.6:1); notify(`${auto?'Tự động gọi':'Đã gọi'} cứu hộ xe #${b.id} về ${dp?dp.n:'xưởng'} (${fmt(cost)})`,'tow'); save(); }
+function startMaint(b,auto){ if(b.st!=='ok') return; const M=MODELS[b.m], r=b.r&&routeById[b.r], dp=r&&nearDepot(r), wk=dp&&hasDU(dp.id,'work'); const cost=Math.round(M.price*.03*(wk?.75:1)/1e4)*1e4;
+  if(S.money<cost&&!auto) return toast('Không đủ tiền bảo dưỡng','coin'); addMoney(-cost,'repair'); b.st='maint'; b.until=S.t+(dp?60:120)*(wk?.6:1); b.l=0; b.dest={};
   S.td.maint=(S.td.maint||0)+1; if(!auto) toast(`Xe #${b.id} vào xưởng bảo dưỡng (${fmt(cost)})`,'wrench'); else notify(`Xe #${b.id} tự vào bảo dưỡng (${fmt(cost)})`,'wrench'); }
 function finishStatus(b){
   if(b.st==='broken'){ towBus(b,true); return; }
@@ -398,7 +404,7 @@ function notify(txt,ic,important){ S.notes.unshift({t:S.t,txt,ic}); if(S.notes.l
 function news(txt){ S.newsQ=S.newsQ||[]; S.newsQ.unshift(txt); if(S.newsQ.length>8) S.newsQ.length=8; updTicker(); }
 /* ---------- Actions ---------- */
 function openRoute(ref){ const r=routeById[ref]; if(!r||S.opened[ref]) return; if(S.money<r.cost) return toast('Không đủ tiền mở tuyến','coin');
-  addMoney(-r.cost,'build'); S.opened[ref]={at:S.t,pax:0,rev:0,up:{},bd:0}; S.rsat[ref]={s:70}; setPreview(null); drawNetwork(); fitRoutes([r]); sfx('buy');
+  addMoney(-r.cost,'build'); S.opened[ref]={at:S.t,pax:0,rev:0,up:{},bd:0}; S.rsat[ref]={s:70}; setPreview(null); drawNetwork(); focusRoute(r); sfx('buy');
   toast(`Đã mở tuyến ${ref}! Giờ hãy mua xe cho tuyến`,'check'); news(`Tuyến xe buýt ${ref} (${r.title}) chính thức hoạt động dưới thương hiệu của bạn.`); checkAch(); save(); refreshSheet(); }
 function closeRoute(ref){ for(const b of S.buses) if(b.r===ref) b.r=null; delete S.opened[ref]; delete S.rsat[ref]; S.comp.routes=S.comp.routes.filter(x=>x!==ref); drawNetwork(); toast('Đã đóng tuyến '+ref,'info'); save(); refreshSheet(); }
 function hireDriver(d,silent){ S.drivers.push(d); S.cands=S.cands.filter(x=>x!==d&&x.id!==d.id); if(!silent){ toast(`Đã thuê tài xế ${d.name}`,'driver'); sfx('click'); } checkAch(); return d; }
@@ -414,8 +420,7 @@ function buyBus(m){ const M=MODELS[m]; if(S.level<M.lvl) return toast('Cần c�
 function assign(b,ref,silent){ b.r=ref||null; b.l=0; b.dest={}; b.dw=1; if(ref){ placeBus(b,ref); if(!silent) toast(`Xe #${b.id} chạy tuyến ${ref}`,'bus'); } save(); }
 function sellBus(id){ const i=S.buses.findIndex(b=>b.id===id); if(i<0) return; const b=S.buses[i], M=MODELS[b.m]; const v=Math.round(M.price*.5*(b.cond??100)/100/1e4)*1e4;
   S.money+=v; S.buses.splice(i,1); for(const d of S.drivers) if(d.bus===id) d.bus=null; toast('Đã bán xe, nhận lại '+fmt(v),'coin'); save(); refreshSheet(); }
-function buildShelter(si){ if(S.shelters[si]) return; if(S.money<SHELTER_COST) return toast('Không đủ tiền','coin'); addMoney(-SHELTER_COST,'build'); S.shelters[si]=1; S.td.shelters=(S.td.shelters||0)+1; viewDirty=true; sfx('buy');
-  toast('Đã xây mái che ở trạm '+D.stops[si][0],'shelter'); checkAch(); checkMissionsLive(); save(); showStop(si); }
+function buildShelter(si){ buyStopUp(si,'shelter'); }
 function setFare(f){ S.fare=f; toast('Giá vé mới: '+fmt(f),'ticket'); news(`Công ty điều chỉnh giá vé xe buýt thành ${fmt(f)}/lượt.`); save(); refreshSheet(); }
 function buyUpgrade(ref,k){ const r=routeById[ref], U=UPGRADES[k], o=S.opened[ref]; if(!o||o.up[k]) return; if(S.level<U.lvl) return toast('Cần cấp '+U.lvl,'lock'); const c=U.cost(r); if(S.money<c) return toast('Không đủ tiền','coin');
   addMoney(-c,'build'); o.up[k]=1; sfx('buy'); toast(`Tuyến ${ref}: đã có ${U.n}`,U.ic); news(`Tuyến ${ref} được nâng cấp: ${U.n}.`); save(); refreshSheet(); }
@@ -424,6 +429,74 @@ function buyDepot(id){ const dp=D.depotById[id]; if(!dp||S.depots.includes(id)) 
 function setLivery(id,c){ const b=S.buses.find(x=>x.id===id); if(!b) return; b.color=c; sfx('click'); save(); refreshSheet(); }
 function assignDriver(did,bid){ const d=S.drivers.find(x=>x.id===did); if(!d) return; d.bus=bid?+bid:null; save(); refreshSheet(); }
 function setShift(did,sh){ const d=S.drivers.find(x=>x.id===did); if(!d) return; d.shift=sh; save(); refreshSheet(); }
+/* ---------- v5: Nâng cấp trạm & bãi xe ---------- */
+const STOP_UPS={
+  shelter:{n:'Mái che',ic:'shelter',cost:SHELTER_COST,lvl:1,d:'+15% khách, chứa 120 người, khách không bực khi mưa',fx:['shelter','weather']},
+  bench:{n:'Ghế chờ',ic:'bench',cost:300000,lvl:1,d:'Có chỗ ngồi nên khách chờ kiên nhẫn hơn',fx:['wait','comfort']},
+  board:{n:'Bảng điện tử báo giờ xe',ic:'board',cost:1200000,lvl:2,d:'Khách biết còn mấy phút xe tới, ít bực khi chờ',fx:['wait','reliab']},
+  light:{n:'Đèn chiếu sáng',ic:'lamp',cost:400000,lvl:1,d:'Trạm sáng và an toàn: +15% khách buổi tối',fx:['comfort','wait']},
+  green:{n:'Thùng rác & cây xanh',ic:'tree',cost:250000,lvl:1,d:'Trạm sạch sẽ, có bóng mát',fx:['comfort']},
+  bay:{n:'Vịnh đỗ xe buýt',ic:'bay',cost:2000000,lvl:3,d:'Xe tấp vào lề đón khách nhanh hơn 30%, đỡ kẹt xe',fx:['reliab','weather']},
+};
+const SU_KEYS=Object.keys(STOP_UPS);
+const FX_NAME=k=>(FACTORS.find(F=>F.k===k)||{}).n||k;
+const hasSU=(si,k)=>k==='shelter'?!!S.shelters[si]:!!(S.stopUp[si]&&S.stopUp[si][k]);
+function suCount(si){ let n=0; for(const k of SU_KEYS) if(hasSU(si,k)) n++; return n; }
+function routeSU(r){ const o={}, N=r.allStops.length||1; for(const k of SU_KEYS){ let c=0; for(const si of r.allStops) if(hasSU(si,k)) c++; o[k]=Math.min(1,c/N*2.5); } return o; }
+function suMood(si){ let m=0; const night=hour()<5.5||hour()>=18.5; if(hasSU(si,'bench')) m+=6; if(hasSU(si,'board')) m+=8; if(hasSU(si,'light')) m+=night?12:3; if(hasSU(si,'green')) m+=4; if(hasSU(si,'bay')) m+=2; return m; }
+function suSpawn(si){ let f=1; const h=hour(); if(hasSU(si,'light')&&(h<5.5||h>=18)) f*=1.15; if(hasSU(si,'board')) f*=1.05; if(hasSU(si,'green')) f*=1.03; return f; }
+function buyStopUp(si,k,silent){
+  const U=STOP_UPS[k]; if(!U||hasSU(si,k)) return false;
+  if(S.level<U.lvl){ if(!silent) toast('Cần cấp '+U.lvl,'lock'); return false; }
+  if(S.money<U.cost){ if(!silent) toast('Không đủ tiền','coin'); return false; }
+  addMoney(-U.cost,'build');
+  if(k==='shelter'){ S.shelters[si]=1; S.td.shelters=(S.td.shelters||0)+1; } else (S.stopUp[si]||(S.stopUp[si]={}))[k]=1;
+  S.stat.stopUps=(S.stat.stopUps||0)+1; viewDirty=true;
+  if(!silent){ sfx('buy'); toast(`Trạm ${D.stops[si][0]}: đã có ${U.n}`,U.ic); checkAch(); checkMissionsLive(); save(); refreshSheet(); }
+  return true; }
+function bulkRoute(ref,which){ const r=routeById[ref]; if(!r) return; const keys=which==='all'?SU_KEYS.filter(k=>S.level>=STOP_UPS[k].lvl):[which];
+  const stops=[...r.allStops].sort((a,b)=>stopW[b]-stopW[a]); let n=0, spent=0, short=false;
+  for(const k of keys) for(const si of stops){ if(hasSU(si,k)) continue; if(S.money<STOP_UPS[k].cost){ short=true; continue; } const m0=S.money; if(buyStopUp(si,k,true)){ n++; spent+=m0-S.money; } }
+  if(!n) return toast(short?'Không đủ tiền để nâng cấp':'Các trạm trên tuyến đã có đủ','info');
+  sfx('buy'); toast(`Tuyến ${ref}: nâng cấp ${n} hạng mục ở trạm (${fmt(spent)})${short?' · hết tiền nên còn thiếu vài trạm':''}`,'up');
+  news(`Công ty nâng cấp ${n} hạng mục tại các trạm tuyến ${ref}.`); checkAch(); checkMissionsLive(); save(); refreshSheet(); }
+function bulkCost(r,k){ let c=0,n=0; for(const si of r.allStops) if(!hasSU(si,k)){ c+=STOP_UPS[k].cost; n++; } return {c,n}; }
+
+/* ô nâng cấp của 1 trạm */
+function stopUpGrid(si){
+  return `<div class="ugrid">${SU_KEYS.map(k=>{ const U=STOP_UPS[k], has=hasSU(si,k), lock=S.level<U.lvl;
+    return `<div class="utile ${has?'has':''} ${lock?'lock':''}">${ICON(U.ic,34)}<b>${U.n}</b><small>${U.d}</small><em>${U.fx.map(FX_NAME).join(' · ')}</em>
+      ${has?`<span class="tag ok">${ICON('check',12)} Đã có</span>`:lock?`<span class="tag lock">${ICON('lock',12)} Cấp ${U.lvl}</span>`:`<button class="btn y mini" data-su="${si}:${k}" ${S.money<U.cost?'disabled':''}>${fmt(U.cost)}</button>`}</div>`; }).join('')}</div>`; }
+/* ô nâng cấp trạm cho cả tuyến */
+function routeStopUpBox(r){
+  let tot=0; const cells=SU_KEYS.map(k=>{ const U=STOP_UPS[k], lock=S.level<U.lvl, {c,n}=bulkCost(r,k), N=r.allStops.length, done=N-n; if(!lock) tot+=c;
+    return `<div class="utile ${n===0?'has':''} ${lock?'lock':''}">${ICON(U.ic,30)}<b>${U.n}</b><div class="ubar"><i style="width:${Math.round(done/N*100)}%"></i></div><small>${done}/${N} trạm</small>
+      ${n===0?`<span class="tag ok">${ICON('check',12)} Đủ cả tuyến</span>`:lock?`<span class="tag lock">${ICON('lock',12)} Cấp ${U.lvl}</span>`:`<button class="btn y mini" data-bulk="${esc(r.ref)}:${k}" ${S.money<U.cost?'disabled':''}>${n} trạm · ${fmt(c)}</button>`}</div>`; }).join('');
+  return `<div class="ubox"><div class="ubh">${ICON('up',22)}<b>Nâng cấp trạm trên tuyến</b></div><div class="ugrid">${cells}</div>
+    ${tot>0?`<button class="btn full" data-bulk="${esc(r.ref)}:all" ${S.money<5e5?'disabled':''}>${ICON('up',18)} Nâng cấp tất cả trạm trên tuyến · ${fmt(tot)}</button><div class="sub" style="margin:6px 0 0">Ưu tiên trạm đông khách trước; thiếu tiền thì làm tới đâu hay tới đó.</div>`:`<div class="tip">${ICON('star',20)}<span>Mọi trạm trên tuyến đã được nâng cấp đầy đủ!</span></div>`}</div>`; }
+
+/* ---------- Bãi xe ---------- */
+const DEPOT_UPS={
+  work:{n:'Xưởng sửa chữa hiện đại',ic:'wrench',cost:3000000,lvl:1,d:'Sửa & bảo dưỡng nhanh hơn 40%, rẻ hơn 25% cho tuyến gần bãi'},
+  expand:{n:'Mở rộng bãi',ic:'expand',cost:2500000,lvl:1,d:'+5 chỗ đậu xe'},
+  wash:{n:'Khu rửa xe',ic:'wash',cost:1500000,lvl:2,d:'Xe sạch bóng: +6 điểm tiện nghi cho tuyến gần bãi'},
+  charge:{n:'Trạm sạc xe điện',ic:'charger',cost:4000000,lvl:4,d:'Xe điện chạy tuyến gần bãi tốn ít hơn 40% tiền điện'},
+};
+const hasDU=(id,k)=>!!(S.depotUp[id]&&S.depotUp[id][k]);
+function routeDepot(r){ const key=S.depots.join(','); if(r._dpk!==key){ r._dp=nearDepot(r); r._dpk=key; } return r._dp; }
+function buyDepotUp(id,k){ const U=DEPOT_UPS[k], dp=D.depotById[id]; if(!U||!dp||!S.depots.includes(id)||hasDU(id,k)) return;
+  if(S.level<U.lvl) return toast('Cần cấp '+U.lvl,'lock'); if(S.money<U.cost) return toast('Không đủ tiền','coin');
+  addMoney(-U.cost,'build'); (S.depotUp[id]||(S.depotUp[id]={}))[k]=1; S.stat.depotUps=(S.stat.depotUps||0)+1; sfx('buy'); toast(`${dp.n}: đã có ${U.n}`,U.ic); news(`${dp.n} vừa có thêm ${U.n.toLowerCase()}.`); checkAch(); save(); refreshSheet(); }
+function depotUpRow(id){ return `<div class="ugrid dep">${Object.entries(DEPOT_UPS).map(([k,U])=>{ const has=hasDU(id,k), lock=S.level<U.lvl;
+  return `<div class="utile ${has?'has':''} ${lock?'lock':''}">${ICON(U.ic,28)}<b>${U.n}</b><small>${U.d}</small>${has?`<span class="tag ok">${ICON('check',12)} Đã có</span>`:lock?`<span class="tag lock">${ICON('lock',12)} Cấp ${U.lvl}</span>`:`<button class="btn y mini" data-du="${id}:${k}" ${S.money<U.cost?'disabled':''}>${fmt(U.cost)}</button>`}</div>`; }).join('')}</div>`; }
+
+/* ---------- Bản đồ: không tự thu nhỏ khi chọn tuyến ---------- */
+function routeVisible(r){ if(!mapReady) return true; const b=map.getBounds(), sh=$('#sheet'), H=innerHeight, cut=sh.classList.contains('closed')?H:sh.getBoundingClientRect().top;
+  for(const d of r.dirs) for(let i=0;i<d.g.length;i+=2){ const p=d.g[i]; if(!b.contains([p[1],p[0]])) continue; const q=map.project([p[1],p[0]]); if(q.y>70&&q.y<cut-10) return true; } return false; }
+function focusRoute(r){ if(!mapReady||routeVisible(r)) return; const c=map.getCenter(); let best=null,bd=1e18;
+  for(const d of r.dirs) for(const p of d.g){ const dd=dist(p,[c.lat,c.lng]); if(dd<bd){ bd=dd; best=p; } }
+  if(best) map.easeTo({center:[best[1],best[0]],offset:[0,-innerHeight*.2],duration:650}); }
+function fitWhole(ref){ const r=routeById[ref]; if(!r) return; const sh=$('#sheet'); toggleSheetSize(false); const h=sh.classList.contains('closed')?0:innerHeight*.4; fitRoutes([r],true,Math.max(40,h-30)); }
 /* ---------- Map (MapLibre, kiểu bản đồ tối giản tự làm) ---------- */
 function lightStyle(){
   const roadW=(a,b)=>['interpolate',['exponential',1.5],['zoom'],10,a,16,b];
@@ -539,7 +612,7 @@ function makeSprite(model,color){
   return {c,w:L_+6,h:W+6};
 }
 const spriteFor=b=>{ const k=b.m+'|'+(b.color||''); return sprites[k]||(sprites[k]=makeSprite(b.m,b.color)); };
-function loadIcons(){ return Promise.all(['face1','face2','face3','face4','office','fest','shelter','depot','broken','sleep','pin'].map(n=>new Promise(res=>{ const im=new Image(); im.onload=()=>{im.ok=1;res();}; im.onerror=()=>res(); im.src=ICON_SRC(n); iconImg[n]=im; }))); }
+function loadIcons(){ return Promise.all(['face1','face2','face3','face4','office','fest','shelter','depot','broken','sleep','pin','bench','board','lamp','tree','bay'].map(n=>new Promise(res=>{ const im=new Image(); im.onload=()=>{im.ok=1;res();}; im.onerror=()=>res(); im.src=ICON_SRC(n); iconImg[n]=im; }))); }
 
 /* ---------- Render ---------- */
 function resize(){ for(const c of [$('#fx'),$('#rain')]){ c.width=innerWidth*dpr; c.height=innerHeight*dpr; c.style.width=innerWidth+'px'; c.style.height=innerHeight+'px'; c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); } viewDirty=true; }
@@ -582,7 +655,8 @@ function render(dt){
         if(i>=0){ g.fillStyle='#fff'; g.font='800 11px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(i+1,x,y+.5); g.textBaseline='alphabetic'; }
         continue; }
       const isPrev=previewRef&&!stopRoutes[si].some(r=>S.opened[r]);
-      g.beginPath(); g.arc(x,y,rad+2,0,6.283); g.fillStyle=S.shelters[si]?'#1d4ed8':'#fff'; g.fill();
+      const nu=suCount(si); g.beginPath(); g.arc(x,y,rad+2+(nu>=3?1:0),0,6.283); g.fillStyle=nu>=SU_KEYS.length?'#f59e0b':nu>=3?'#7c3aed':S.shelters[si]||nu?'#1d4ed8':'#fff'; g.fill();
+      if(nu&&z>=15.5&&!isPrev){ let ix=x-(nu*16)/2; const iy=y+rad+4; g.fillStyle='rgba(255,255,255,.94)'; g.beginPath(); g.roundRect(ix-3,iy-2,nu*16+5,19,9); g.fill(); for(const k of SU_KEYS) if(hasSU(si,k)){ const im=iconImg[STOP_UPS[k].ic]; if(im&&im.ok) g.drawImage(im,ix,iy,16,16); ix+=16; } }
       g.beginPath(); g.arc(x,y,rad,0,6.283); g.fillStyle=isPrev?'#fff':(w<15?'#22c55e':w<35?'#facc15':w<55?'#fb923c':'#ef4444'); g.fill();
       if(isPrev){ g.lineWidth=2; g.strokeStyle=routeById[previewRef].color; g.stroke(); }
       if(showFace&&!isPrev){ const im=iconImg[faceOf(stopMood(si))]; if(im&&im.ok) g.drawImage(im,x+rad-2,y-rad-14,16,16);
@@ -626,8 +700,10 @@ function render(dt){
   else if(rg._on){ rg.clearRect(0,0,W,H); rg._on=0; }
 }
 /* ---------- UI core ---------- */
-function openSheet(html,ctx,cls){ $('#sheet-body').innerHTML=html; const sh=$('#sheet'); sh.classList.remove('closed'); sh.classList.toggle('mini',cls==='mini'); sheetCtx=ctx; }
-function closeSheet(){ if(createMode){ cancelCreate(); return; } $('#sheet').classList.add('closed'); sheetCtx=null; setPreview(null); setTab('map',true); }
+let sheetBig=false; const PEEK=['route','stop','bus'];
+function openSheet(html,ctx,cls){ $('#sheet-body').innerHTML=html; const sh=$('#sheet'); sh.classList.remove('closed'); sh.classList.toggle('mini',cls==='mini'); sh.classList.toggle('peek',!!ctx&&PEEK.includes(ctx.t)&&!sheetBig&&cls!=='mini'); sh.classList.toggle('canpeek',!!ctx&&PEEK.includes(ctx.t)); sheetCtx=ctx; }
+function toggleSheetSize(big){ const sh=$('#sheet'); if(!sh.classList.contains('canpeek')) return; sheetBig=big??!sheetBig; sh.classList.toggle('peek',!sheetBig); }
+function closeSheet(){ if(createMode){ cancelCreate(); return; } sheetBig=false; $('#sheet').classList.add('closed'); sheetCtx=null; setPreview(null); setTab('map',true); }
 const SHEETS={routes:()=>renderRoutes(),route:c=>showRoute(c.ref,true),fleet:()=>renderFleet(),finance:()=>renderFinance(),stop:c=>showStop(c.si),more:()=>renderMore(),sat:()=>renderSat(),bus:c=>showBus(c.id,true),create:()=>renderCreate()};
 function refreshSheet(){ if(!sheetCtx) return; const c=sheetCtx, el=$('#sheet-body'), sc=el.scrollTop; SHEETS[c.t]?.(c); el.scrollTop=sc; }
 function setTab(t,noOpen){ curTab=t; document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t)); if(noOpen) return; setPreview(null);
@@ -667,21 +743,22 @@ function factorBars(f){ return FACTORS.map(F=>{ const v=Math.round(f[F.k]??0); r
 function tipsFor(f,max=3){ return FACTORS.map(F=>({F,v:f[F.k]??0})).filter(x=>x.v<70).sort((a,b)=>a.v-b.v).slice(0,max).map(x=>`<div class="tip">${ICON(x.F.ic,20)}<span><b>${x.F.n} (${Math.round(x.v)})</b>: ${x.F.tip}</span></div>`).join('') || `<div class="tip">${ICON('check',20)}<span>Mọi thứ đang rất ổn, tiếp tục phát huy!</span></div>`; }
 function showRoute(ref,keep){
   const r=routeById[ref]; if(!r) return; const o=S.opened[ref];
-  if(!keep){ setPreview(r); fitRoutes([r],true,innerHeight*.5); }
+  if(!keep){ setPreview(r); setTimeout(()=>focusRoute(r),60); }
   const buses=S.buses.filter(b=>b.r===ref), idle=S.buses.filter(b=>!b.r), rs=S.rsat[ref], comp=S.comp.routes.includes(ref);
   const top=[...r.allStops].sort((a,b)=>stopW[b]-stopW[a]).slice(0,5).map(s=>esc(D.stops[s][0]));
   const A=r.dirs[0],B=r.dirs[1];
   const ups=o?Object.entries(UPGRADES).map(([k,U])=>{ const has=o.up[k], lock=S.level<U.lvl, c=U.cost(r);
-    return `<div class="card up ${has?'has':''}">${ICON(U.ic,34)}<div class="grow"><div class="t">${U.n}</div><div class="m">${U.d}</div></div>${has?`<span class="tag ok">${ICON('check',12)} Đã có</span>`:lock?`<span class="tag lock">${ICON('lock',12)} Cấp ${U.lvl}</span>`:`<button class="btn y mini" data-up="${esc(ref)}:${k}" ${S.money<c?'disabled':''}>${fmt(c)}</button>`}</div>`; }).join(''):'';
+    return `<div class="utile ${has?'has':''} ${lock?'lock':''}">${ICON(U.ic,32)}<b>${U.n}</b><small>${U.d}</small>${has?`<span class="tag ok">${ICON('check',12)} Đã có</span>`:lock?`<span class="tag lock">${ICON('lock',12)} Cấp ${U.lvl}</span>`:`<button class="btn y mini" data-up="${esc(ref)}:${k}" ${S.money<c?'disabled':''}>${fmt(c)}</button>`}</div>`; }).join(''):'';
   openSheet(`<h2>${badge(r)} <span class="h2t">${esc(r.title)}</span></h2>
     <div class="sub">${r.op?esc(r.op)+' · ':''}${r.km.toFixed(1)} km · ${r.allStops.length} trạm thật · ${fires(r.fire)}</div>
+    <div class="row qrow"><button class="btn g mini" data-fitroute="${esc(r.ref)}">${ICON('eyemap',18)} Xem cả tuyến</button>${o?`<button class="btn y mini" data-jump="ups">${ICON('up',18)} Nâng cấp</button>`:''}</div>
     <div class="dirs"><div>${ICON('up',16)} <b>Chiều đi</b> ${esc(D.stops[A.si[0]][0])} → ${esc(D.stops[A.si[A.si.length-1]][0])} · ${A.si.length} trạm</div>
       <div style="transform:none">${ICON('swap',16)} <b>Chiều về</b> ${esc(D.stops[B.si[0]][0])} → ${esc(D.stops[B.si[B.si.length-1]][0])} · ${B.si.length} trạm${r.two?'':' <i>(cùng đường, ngược chiều)</i>'}</div></div>
     ${comp?`<div class="tip warn">${ICON('rival',22)}<span><b>${esc(S.comp.name)}</b> đang chạy song song tuyến này và giành khách (-20%). Giữ hài lòng ≥78% để đẩy họ đi.</span></div>`:''}
     ${o?`<div class="kpi"><div class="p">Khách hôm nay<b>${(o.pax||0).toLocaleString('vi-VN')}</b></div><div class="p">Doanh thu hôm nay<b>${fmt(o.rev||0)}</b></div><div>Sự cố hôm nay<b>${o.bd||0}</b></div><div>Xe trên tuyến<b>${buses.length}</b></div></div>`:''}
     ${o&&rs?`<div class="satbox"><div class="row">${ICON(faceOf(rs.s),44)}<div class="grow"><b style="font-size:17px">${Math.round(rs.s)}% · ${moodTxt(rs.s)}</b><div class="m">${buses.length?`Cứ ~${Math.round(rs.hw||0)} phút có 1 chuyến mỗi chiều`:'Chưa có xe chạy'}</div></div></div>${rs.f?factorBars(rs.f):''}<h3>Lời khuyên</h3>${rs.f?tipsFor(rs.f):''}</div>`:''}
     <div class="m" style="margin:8px 0">Trạm đông: ${top.join(' · ')}</div>
-    ${o?`<h3>${ICON('lane',20)} Nâng cấp tuyến</h3>${ups}
+    ${o?`<div class="ubox" id="ups"><div class="ubh">${ICON('lane',22)}<b>Nâng cấp tuyến</b></div><div class="ugrid">${ups}</div></div>${routeStopUpBox(r)}
       <h3>Xe trên tuyến (${buses.length})</h3>${buses.map(b=>busCard(b)).join('')||'<div class="empty">Chưa có xe. Mua hoặc giao xe đang rảnh!</div>'}
       ${idle.length?`<button class="btn full" data-assignidle="${esc(ref)}">Giao ${idle.length} xe đang rảnh cho tuyến này</button>`:''}
       <div class="row wrap">${Object.entries(MODELS).filter(([k,M])=>S.level>=M.lvl).map(([k,M])=>`<button class="btn y buyq" data-buy="${k}" ${S.money<M.price?'disabled':''}>${ICON(M.icon,26)}<span>${fmt(M.price)}</span></button>`).join('')}</div>
@@ -747,10 +824,10 @@ function renderDrivers(head){
     ${S.cands.map(d=>`<div class="card drv">${ICON('driver',30)}<div class="grow"><div class="t">${esc(d.name)} <span class="stars">${stars(d.skill)}</span></div><div class="m">Lương ${fmt(d.wage)}/ngày (ca cả ngày ×1.6)</div></div><button class="btn y mini" data-hire="${d.id}">Thuê</button></div>`).join('')||'<div class="empty">Hết ứng viên, quay lại ngày mai.</div>'}`,{t:'fleet'});
 }
 function renderDepots(head){
-  openSheet(`${head}<div class="sub">Mỗi bãi xe chứa ${DEPOT_CAP} xe (hiện ${S.buses.length}/${fleetCap()}). Tuyến chạy gần bãi (≤2,5 km) được cứu hộ, sửa chữa & bảo dưỡng nhanh gấp đôi, rẻ hơn. Bãi đặt cạnh các bến xe thật.</div>
+  openSheet(`${head}<div class="sub">Mỗi bãi xe chứa ${DEPOT_CAP} xe, mở rộng thêm được 5 (hiện ${S.buses.length}/${fleetCap()}). Bãi của bạn có ô nâng cấp ngay bên dưới. Tuyến chạy gần bãi (≤2,5 km) được cứu hộ, sửa chữa & bảo dưỡng nhanh gấp đôi, rẻ hơn. Bãi đặt cạnh các bến xe thật.</div>
     ${D.depots.map(dp=>{ const own=S.depots.includes(dp.id), near=openRoutes().filter(r=>nearDepot(r)===dp).length;
       return `<div class="card">${ICON(dp.id==='bt'?'office':'depot',36)}<div class="grow"><div class="t">${esc(dp.n)}</div><div class="m">${ICON('pin',13)} ${esc(D.stops[dp.si][0])}${own?` · phục vụ ${near} tuyến`:''}</div></div>
-        <button class="btn g mini" data-goto="${dp.p[0]},${dp.p[1]}">${ICON('target',16)}</button>${own?`<span class="tag ok">${ICON('check',12)} Của bạn</span>`:`<button class="btn y mini" data-depot="${dp.id}" ${S.money<dp.cost?'disabled':''}>${fmt(dp.cost)}</button>`}</div>`; }).join('')}`,{t:'fleet'});
+        <button class="btn g mini" data-goto="${dp.p[0]},${dp.p[1]}">${ICON('target',16)}</button>${own?`<span class="tag ok">${ICON('check',12)} Của bạn</span>`:`<button class="btn y mini" data-depot="${dp.id}" ${S.money<dp.cost?'disabled':''}>${fmt(dp.cost)}</button>`}</div>${own?depotUpRow(dp.id):''}`; }).join('')}`,{t:'fleet'});
 }
 /* ---------- Satisfaction ---------- */
 function renderSat(){
@@ -816,13 +893,13 @@ function renderStopStats(head){
 function showStop(si){
   const st=D.stops[si], w=Math.floor(S.waiting[si]||0), sh=S.shelters[si], rs=stopRoutes[si].map(x=>routeById[x]).filter(Boolean), mood=stopMood(si), a=S.ss[si]||[0,0], t=(S.td.ss||{})[si]||[0,0];
   const ct=S.contracts.active.filter(c=>nearSet(c).has(si));
-  openSheet(`<h2>${ICON(sh?'shelter':'stop',28)} <span class="h2t">${esc(st[0])}</span></h2><div class="sub">Trạm thật trên OpenStreetMap · ${fires(stopFire(si))}</div>
+  openSheet(`<h2>${ICON(sh?'shelter':'stop',28)} <span class="h2t">${esc(st[0])}</span>${'★'.repeat(suCount(si))?`<span class="sstars">${'★'.repeat(suCount(si))}</span>`:''}</h2><div class="sub">Trạm thật trên OpenStreetMap · ${fires(stopFire(si))}</div>
     <div class="kpi"><div>${ICON('people',18)} Khách đang chờ<b>${w}</b></div><div>${ICON(faceOf(mood),18)} Tâm trạng<b>${moodTxt(mood)}</b></div>
       <div>${ICON('up',18)} Lên xe hôm nay<b>${t[0]}</b></div><div>${ICON('pin',18)} Xuống xe hôm nay<b>${t[1]}</b></div>
       <div>Tổng lượt lên<b>${a[0].toLocaleString('vi-VN')}</b></div><div>Tổng lượt xuống<b>${a[1].toLocaleString('vi-VN')}</b></div></div>
     ${ct.length?`<div class="tip">${ICON('contract',20)}<span>Thuộc vùng hợp đồng: ${ct.map(c=>esc(c.n)).join(', ')}</span></div>`:''}
     <div class="m">Tuyến đi qua: ${rs.map(r=>`<span data-route="${esc(r.ref)}">${badge(r,1)}</span>`).join(' ')}</div>
-    ${sh?`<div class="tip">${ICON('check',20)}<span>Đã có mái che: +15% khách, chứa 120 người, khách không bực khi mưa.</span></div>`:`<button class="btn y full" data-shelter="${si}" ${S.money<SHELTER_COST?'disabled':''}>${ICON('shelter',22)} Xây mái che · ${fmt(SHELTER_COST)}</button><div class="sub" style="margin-top:8px">Mái che: +15% khách, chứa 120 người, tăng điểm hài lòng của tuyến.</div>`}`,{t:'stop',si});
+    <div class="ubox"><div class="ubh">${ICON('up',22)}<b>Ô nâng cấp trạm</b><span class="ucnt">${suCount(si)}/${SU_KEYS.length}</span></div>${stopUpGrid(si)}</div>`,{t:'stop',si});
 }
 
 /* ---------- More hub ---------- */
@@ -834,7 +911,7 @@ function renderMore(){
   if(s==='weather') return renderWeather(back); if(s==='notes') return renderNotes(back); if(s==='settings') return renderSettings(back); if(s==='credits') return renderCredits(back);
   const dots={missions:pendingClaims(),notes:S.unread||0,contracts:S.contracts.offers.length};
   openSheet(`<h2>${ICON('gear',28)} Thêm</h2><div class="hub">${HUB.map(([k,n,ic])=>`<button class="tile" data-${k==='guide'?'tut':'sub="more:'+k+'"'}>${ICON(ic,36)}<span>${n}</span>${dots[k]?`<i class="dot">${dots[k]}</i>`:''}</button>`).join('')}</div>
-    <div class="sub" style="text-align:center;margin-top:10px">Xe Buýt Sài Gòn v3 · dữ liệu © OpenStreetMap</div>`,{t:'more'});
+    <div class="sub" style="text-align:center;margin-top:10px">Xe Buýt Sài Gòn v5 · dữ liệu © OpenStreetMap</div>`,{t:'more'});
 }
 function renderMissions(back){
   const L=S.missions?S.missions.list:[], W=S.weekly;
@@ -1302,7 +1379,7 @@ function bindUI(){
   $('#zin').onclick=()=>map.zoomIn(); $('#zout').onclick=()=>map.zoomOut(); $('#zhome').onclick=()=>fitOpen();
   addEventListener('pointerdown',audioInit,{passive:true});
   document.body.addEventListener('click',e=>{
-    const t=e.target.closest('[data-open],[data-route],[data-buy],[data-sell],[data-shelter],[data-close],[data-tutnext],[data-tutskip],[data-tut],[data-reset],[data-saveg],[data-f],[data-assignidle],[data-close-route],[data-fare],[data-sub],[data-bus],[data-tow],[data-maint],[data-maintall],[data-livery],[data-hire],[data-fire],[data-unassign],[data-depot],[data-goto],[data-up],[data-borrow],[data-repay],[data-claim],[data-accept],[data-opt],[data-fs],[data-create],[data-ccancel],[data-cundo],[data-cdone],[data-cok],[data-stop],[data-cab]');
+    const t=e.target.closest('[data-open],[data-route],[data-buy],[data-sell],[data-shelter],[data-close],[data-tutnext],[data-tutskip],[data-tut],[data-reset],[data-saveg],[data-f],[data-assignidle],[data-close-route],[data-fare],[data-sub],[data-bus],[data-tow],[data-maint],[data-maintall],[data-livery],[data-hire],[data-fire],[data-unassign],[data-depot],[data-goto],[data-up],[data-borrow],[data-repay],[data-claim],[data-accept],[data-opt],[data-fs],[data-create],[data-ccancel],[data-cundo],[data-cdone],[data-cok],[data-stop],[data-cab],[data-su],[data-bulk],[data-du],[data-fitroute],[data-jump]');
     if(!t||t.disabled) return; const ds=t.dataset; if(t.tagName==='BUTTON') sfx('click');
     if(ds.open!==undefined){ e.stopPropagation(); openRoute(ds.open); }
     else if(ds.tow){ e.stopPropagation(); const b=S.buses.find(x=>x.id===+ds.tow); if(b){ towBus(b,false); refreshSheet(); } }
@@ -1335,6 +1412,11 @@ function bindUI(){
     else if(ds.cdone!==undefined) finishCreate();
     else if(ds.cok!==undefined) confirmCreate();
     else if(ds.cab){ e.stopPropagation(); const [id,seat]=ds.cab.split(':'); enterCab(+id,seat||'driver'); }
+    else if(ds.su){ const [si,k]=ds.su.split(':'); buyStopUp(+si,k); }
+    else if(ds.bulk){ const i=ds.bulk.lastIndexOf(':'); bulkRoute(ds.bulk.slice(0,i),ds.bulk.slice(i+1)); }
+    else if(ds.du){ const [id,k]=ds.du.split(':'); buyDepotUp(id,k); }
+    else if(ds.fitroute){ fitWhole(ds.fitroute); }
+    else if(ds.jump){ toggleSheetSize(true); setTimeout(()=>{ const el=document.getElementById(ds.jump); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
     else if(ds.stop) showStop(+ds.stop);
     else if(ds.bus) showBus(+ds.bus);
     else if(ds.route) showRoute(ds.route);
@@ -1344,9 +1426,11 @@ function bindUI(){
     else if(ds.shift) setShift(+ds.shift,s.value);
     else if(ds.drvbus) assignDriver(+ds.drvbus,s.value||null);
     else if(ds.adddrv&&s.value) assignDriver(+s.value,+ds.adddrv); });
-  $('.grab').onclick=closeSheet; bindCab();
+  $('.grab').onclick=()=>{ if($('#sheet').classList.contains('canpeek')) toggleSheetSize(); else closeSheet(); }; $('#sheetx').onclick=e=>{ e.stopPropagation(); closeSheet(); }; bindCab();
   let y0=null; $('#sheet').addEventListener('touchstart',e=>{ if($('#sheet-body').scrollTop<=0) y0=e.touches[0].clientY; },{passive:true});
-  $('#sheet').addEventListener('touchmove',e=>{ if(y0!==null&&e.touches[0].clientY-y0>70){ y0=null; closeSheet(); } },{passive:true});
+  $('#sheet').addEventListener('touchmove',e=>{ if(y0===null) return; const dy=e.touches[0].clientY-y0, sh=$('#sheet');
+    if(dy>70){ y0=null; if(sh.classList.contains('canpeek')&&!sh.classList.contains('peek')) toggleSheetSize(false); else closeSheet(); }
+    else if(dy<-60&&sh.classList.contains('peek')){ y0=null; toggleSheetSize(true); } },{passive:true});
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); }); addEventListener('pagehide',save);
 }
 /* ---------- Boot ---------- */
@@ -1369,9 +1453,10 @@ async function boot(){
   $('#loading').style.opacity=0; setTimeout(()=>$('#loading').remove(),500);
   if(!S.seen.tut) showTut(0); else if(upgraded||!S.seen.v3) showWhatsNew();
   if(S.seen.tut&&S.seen.v3&&!S.seen.v4) setTimeout(()=>notify('Mới: Góc nhìn trong xe! Chọn một xe buýt rồi bấm "Vào xe" để ngồi ghế tài xế hoặc ghế khách','bus'),1500);
-  S.seen.v3=1; S.seen.v4=1; save();
+  if(S.seen.tut&&S.seen.v4&&!S.seen.v5) setTimeout(()=>notify('Mới: Ô nâng cấp trạm (mái che, ghế, bảng điện tử, đèn, cây xanh, vịnh đỗ), nâng cấp bãi xe, và chọn tuyến không còn tự thu nhỏ bản đồ','up'),1800);
+  S.seen.v3=1; S.seen.v4=1; S.seen.v5=1; save();
   setInterval(save,10000);
-  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,enterCab,exitCab,setSeat,toggleReal,get cab(){return cab;},finishCreate,confirmCreate,get map(){return map;}};
+  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,enterCab,exitCab,buyStopUp,bulkRoute,buyDepotUp,showRoute,showStop,setSeat,toggleReal,get cab(){return cab;},finishCreate,confirmCreate,get map(){return map;}};
   requestAnimationFrame(frame);
 }
 boot().catch(e=>{ const p=$('#loading p'); if(p) p.textContent='Lỗi tải game: '+e.message; console.error(e); });
