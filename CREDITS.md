@@ -11,3 +11,8 @@ Game code, all icons (js/icons.js) and on-map bus sprites: original work made fo
 - **Ảnh xe buýt điện** — (VNM-Ho Chi Minh City) Vinbus 50F-017.44 D4 2025-10-05.jpg — S5A-0043 — License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) — Source: https://commons.wikimedia.org/wiki/File:(VNM-Ho_Chi_Minh_City)_Vinbus_50F-017.44_D4_2025-10-05.jpg — File: `assets/bus-ev.jpg` (Resized to 500px width)
 - **Ảnh xe buýt 2 tầng** — HCMC double-decker bus.jpg — Dragfyre — License: [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) — Source: https://commons.wikimedia.org/wiki/File:HCMC_double-decker_bus.jpg — File: `assets/bus-dd.jpg` (Resized to 500px width)
 - **Bộ icon & hình xe trên bản đồ** — Xe Buýt Sài Gòn icon set (js/icons.js) — Tự thiết kế cho game này (SVG viết tay) — License: Original work
+
+## v3
+- **Tìm đường cho tuyến tự tạo**: OSRM demo server (https://project-osrm.org/), phần mềm BSD-2-Clause, dữ liệu © OpenStreetMap contributors (ODbL). Nếu không kết nối được, game nối thẳng giữa các trạm.
+- **Âm thanh & nhạc nền**: tạo hoàn toàn bằng code WebAudio trong game, không dùng file âm thanh có bản quyền.
+- **Icon mới (tài xế, bãi xe, nhiệm vụ, ngân hàng, đối thủ, thời tiết…)**: tự thiết kế dạng SVG trong `js/icons.js`.

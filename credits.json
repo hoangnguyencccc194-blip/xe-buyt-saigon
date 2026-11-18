@@ -80,5 +80,19 @@
   "license": "Original work",
   "licenseUrl": "",
   "source": ""
+ },
+ {
+  "what": "Tìm đường cho tuyến tự tạo",
+  "title": "OSRM demo server (dữ liệu OpenStreetMap)",
+  "author": "Project OSRM / FOSSGIS",
+  "license": "BSD-2-Clause (phần mềm) · dữ liệu ODbL",
+  "licenseUrl": "https://github.com/Project-OSRM/osrm-backend/blob/master/LICENSE.TXT",
+  "source": "https://project-osrm.org/"
+ },
+ {
+  "what": "Âm thanh & nhạc nền",
+  "title": "",
+  "author": "Tự tạo bằng code WebAudio trong game",
+  "license": "Không dùng file âm thanh bên ngoài"
  }
 ]
