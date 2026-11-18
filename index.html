@@ -5,54 +5,55 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
 <title>Xe Buýt Sài Gòn – Game quản lý xe buýt TP.HCM</title>
-<link rel="icon" href="assets/tw-1f68d.svg">
-<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="icon" href="assets/icon.svg">
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div id="map"></div>
-<canvas id="fx"></canvas>
 <div id="tint"></div>
+<canvas id="fx"></canvas>
 <canvas id="rain"></canvas>
 
 <header id="hud">
   <div class="hud-row">
-    <div class="pill money"><img src="assets/tw-1f4b0.svg" alt=""><span id="money">0</span></div>
-    <div class="pill clock"><span id="dayicon">☀️</span><span id="clock">05:00</span><small id="daylbl">Ngày 1</small></div>
+    <div class="pill money" data-ic="coin" data-s="24"><span id="money">0</span></div>
+    <div class="pill clock"><span id="dayicon"></span><span id="clock">06:00</span><small id="daylbl">Ngày 1</small><span id="rush"></span></div>
     <div class="speed">
-      <button data-sp="0" aria-label="Tạm dừng">⏸</button>
-      <button data-sp="1" class="on" aria-label="Tốc độ 1x">▶</button>
-      <button data-sp="3" aria-label="Tốc độ 3x">⏩</button>
+      <button data-sp="0" aria-label="Tạm dừng" data-ic="pause" data-s="18"></button>
+      <button data-sp="1" class="on" aria-label="Tốc độ 1x" data-ic="play" data-s="18"></button>
+      <button data-sp="3" aria-label="Tốc độ 3x" data-ic="fast" data-s="18"></button>
     </div>
   </div>
   <div class="hud-row">
-    <div class="pill lvl"><img src="assets/tw-1f3c6.svg" alt=""><b id="lvl">1</b><div class="bar"><i id="xpbar"></i></div></div>
-    <div class="pill sat"><img src="assets/tw-2b50.svg" alt=""><span id="sat">70%</span></div>
-    <div class="pill pax"><img src="assets/tw-1f465.svg" alt=""><span id="paxnow">0</span></div>
+    <div class="pill lvl" data-ic="trophy" data-s="24"><b id="lvl">1</b><div class="bar"><i id="xpbar"></i></div></div>
+    <button class="pill sat" id="satpill" aria-label="Độ hài lòng"><span id="satface"></span><span id="sat">70%</span></button>
+    <div class="pill pax" data-ic="people" data-s="24"><span id="paxnow">0</span></div>
   </div>
   <div id="event" class="hidden"></div>
 </header>
 
-<section id="sheet" class="closed">
-  <div class="grab"></div>
-  <div id="sheet-body"></div>
-</section>
+<div class="fab">
+  <button id="zin" aria-label="Phóng to" data-ic="plus"></button>
+  <button id="zout" aria-label="Thu nhỏ" data-ic="minus"></button>
+  <button id="zhome" aria-label="Về tuyến của bạn" data-ic="target" data-s="26"></button>
+</div>
+
+<section id="sheet" class="closed"><div class="grab"></div><div id="sheet-body"></div></section>
 
 <nav id="tabs">
-  <button data-tab="map" class="on"><span>🗺️</span>Bản đồ</button>
-  <button data-tab="routes"><span>🚏</span>Tuyến</button>
-  <button data-tab="fleet"><span>🚌</span>Đội xe</button>
-  <button data-tab="finance"><span>📊</span>Tài chính</button>
-  <button data-tab="more"><span>⚙️</span>Thêm</button>
+  <button data-tab="map" class="on" data-ic="map" data-s="28">Bản đồ</button>
+  <button data-tab="routes" data-ic="stop" data-s="28">Tuyến</button>
+  <button data-tab="fleet" data-ic="bus" data-s="28">Đội xe</button>
+  <button data-tab="finance" data-ic="chart" data-s="28">Tài chính</button>
+  <button data-tab="more" data-ic="gear" data-s="28">Thêm</button>
 </nav>
 
 <div id="toasts"></div>
 <div id="modal" class="hidden"></div>
-<div id="loading"><div class="logo">🚌</div><h1>Xe Buýt Sài Gòn</h1><p>Đang tải bản đồ và tuyến thật…</p></div>
-<script src="vendor/leaflet.js"></script>
+<div id="loading"><div class="logo"><img src="assets/icon.svg" width="96" height="96" alt=""></div><h1>Xe Buýt Sài Gòn</h1><p>Đang tải bản đồ và tuyến thật…</p></div>
 <script src="vendor/maplibre-gl.js"></script>
-<script src="vendor/leaflet-maplibre-gl.js"></script>
-<script src="game.js"></script>
+<script src="js/icons.js?v=2"></script>
+<script src="js/game.js?v=2"></script>
 </body>
 </html>

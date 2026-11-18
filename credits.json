@@ -1,7 +1,7 @@
 [
  {
   "what": "Dữ liệu tuyến & trạm xe buýt",
-  "title": "OpenStreetMap (Overpass API)",
+  "title": "OpenStreetMap (Overpass API): tuyến, trạm và ranh giới hành chính TP.HCM (relation 1973756)",
   "author": "© OpenStreetMap contributors",
   "license": "ODbL 1.0",
   "licenseUrl": "https://opendatacommons.org/licenses/odbl/",
@@ -9,25 +9,17 @@
  },
  {
   "what": "Nền bản đồ",
-  "title": "OpenFreeMap \"Liberty\" (vector tiles, OpenMapTiles schema)",
+  "title": "Vector tiles OpenFreeMap (OpenMapTiles schema), kiểu bản đồ tối giản tự thiết kế",
   "author": "OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors",
-  "license": "Free, no key; attribution required (data ODbL, OpenMapTiles CC-BY 4.0)",
+  "license": "Free, no key; attribution required (data ODbL)",
   "licenseUrl": "https://openfreemap.org/",
   "source": "https://openfreemap.org/"
  },
  {
-  "what": "Thư viện bản đồ",
-  "title": "Leaflet 1.9.4",
-  "author": "Volodymyr Agafonkin & contributors",
-  "license": "BSD-2-Clause",
-  "licenseUrl": "https://github.com/Leaflet/Leaflet/blob/main/LICENSE",
-  "source": "https://leafletjs.com"
- },
- {
-  "what": "Hiển thị bản đồ vector",
-  "title": "MapLibre GL JS 4.7.1 + maplibre-gl-leaflet",
+  "what": "Hiển thị bản đồ",
+  "title": "MapLibre GL JS 4.7.1",
   "author": "MapLibre contributors",
-  "license": "BSD-3-Clause / ISC",
+  "license": "BSD-3-Clause",
   "licenseUrl": "https://github.com/maplibre/maplibre-gl-js/blob/main/LICENSE.txt",
   "source": "https://maplibre.org"
  },
@@ -82,11 +74,11 @@
   "note": "Resized to 500px width"
  },
  {
-  "what": "Biểu tượng emoji (tiền, cúp, sao, người)",
-  "title": "Twemoji",
-  "author": "Twitter, Inc. and other contributors (jdecked/twemoji)",
-  "license": "CC BY 4.0",
-  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
-  "source": "https://github.com/jdecked/twemoji"
+  "what": "Bộ icon & hình xe trên bản đồ",
+  "title": "Xe Buýt Sài Gòn icon set (js/icons.js)",
+  "author": "Tự thiết kế cho game này (SVG viết tay)",
+  "license": "Original work",
+  "licenseUrl": "",
+  "source": ""
  }
 ]
