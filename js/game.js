@@ -98,7 +98,7 @@ let viewDirty=true,stopScreen=[],previewRef=null,mapReady=false,frameSkip=0,dpr=
 /* ---------- State ---------- */
 function newLedger(d){return {day:d,fare:0,sub:0,fuel:0,upk:0,build:0,bonus:0,wage:0,interest:0,repair:0,contract:0};}
 function newState(){ return {v:3,money:START_MONEY,t:6*60,xp:0,level:1,sat:70,opened:{},buses:[],shelters:{},waiting:{},nextId:1,
-  ledger:[newLedger(1)],paxTotal:0,event:null,seen:{},fare:7000,rsat:{},opt:{fps:60,sfx:1,music:0,fs:'md',automaint:1},
+  ledger:[newLedger(1)],paxTotal:0,event:null,seen:{},fare:7000,rsat:{},opt:{fps:60,sfx:1,music:0,fs:'md',automaint:1,svcStart:270,svcEnd:1320,nightFF:1},
   drivers:[],cands:[],depots:['bt'],custom:[],missions:null,weekly:null,ach:{},contracts:{offers:[],active:[]},loans:[],
   stopUp:{},depotUp:{},comp:{name:'Xe buýt Phương Nam',buses:4,routes:[],sat:62,pax:0},notes:[],fc:[],rec:{},stat:{},ss:{},td:{}}; }
 function genDriver(){ const skill=clamp(Math.round(1+Math.random()*3.2+(S?S.level*.08:0)),1,5);
@@ -123,7 +123,7 @@ const today=()=>S.ledger[S.ledger.length-1];
 const day=()=>Math.floor(S.t/1440)+1;
 const hour=()=>(S.t%1440)/60;
 const isRush=h=>(h>=6&&h<8.5)||(h>=16.5&&h<19);
-function hourFactor(h){ if(h<5) return .05; if(h<6) return .5; if(h<8.5) return 1.9; if(h<11) return 1; if(h<13) return 1.2; if(h<16.5) return .9; if(h<19) return 2; if(h<22) return .8; return .2; }
+function hourFactor(h){ if(h<5) return .35; if(h<6) return .5; if(h<8.5) return 1.9; if(h<11) return 1; if(h<13) return 1.2; if(h<16.5) return .9; if(h<19) return 2; if(h<22) return .8; return .2; }
 
 /* ---------- Data ---------- */
 function stopWeight(name,p){
@@ -176,7 +176,7 @@ const fleetCap=()=>S.depots.reduce((a,id)=>a+DEPOT_CAP+(hasDU(id,'expand')?5:0),
 function nearDepot(r){ for(const id of S.depots){ const dp=D.depotById[id]; if(!dp) continue; for(let i=0;i<r.dirs[0].g.length;i+=3) if(dist(r.dirs[0].g[i],dp.p)<2500) return dp; } return null; }
 /* ---------- Drivers / bus status ---------- */
 function busDrivers(b){ return S.drivers.filter(d=>d.bus===b.id); }
-function onShift(d,h){ const r=SHIFTS[d.shift].h; return h>=r[0]&&h<r[1]; }
+function onShift(d,h){ const r=shiftRange(d.shift); return h>=r[0]&&h<r[1]; }
 function activeDriver(b,h=hour()){ let best=null; for(const d of S.drivers) if(d.bus===b.id&&onShift(d,h)&&(!best||d.skill>best.skill)) best=d; return best; }
 const busActive=b=>b.r&&b.st==='ok'&&!!activeDriver(b);
 const maxCond=b=>clamp(100-Math.max(0,(S.t-(b.born||0))/1440)*1.2,55,100);
@@ -197,7 +197,7 @@ function computeRouteSat(r){
   f.wait=clamp(100-(wavg-6)*2.4,0,100);
   const avgSpeed=n?act.reduce((a,b)=>a+MODELS[b.m].speed,0)/n:300;
   const headway=n?(r.dirs[0].len+r.dirs[1].len)/avgSpeed/n:999;
-  f.freq=n?clamp(100-(headway-15)*.9,0,100):(hour()>=22||hour()<5?60:0);
+  f.freq=n?clamp(100-(headway-15)*.9,0,100):(!inService()?60:0);
   f.crowd=n?clamp(100-act.reduce((a,b)=>a+Math.max(0,b.l/MODELS[b.m].cap-.75),0)/n*250,0,100):50;
   let cf=buses.length?buses.reduce((a,b)=>{ const d=activeDriver(b); return a+MODELS[b.m].comfort+(d?(d.skill-3)*4-(d.shift==='full'?4:0):0); },0)/buses.length:50;
   const su=routeSU(r), night=hour()<5.5||hour()>=18.5, dpo=routeDepot(r);
@@ -218,7 +218,7 @@ function updateSat(rate){
     o.s=clamp(o.s+(c.target-o.s)*rate,0,100); o.f=c.f; o.hw=c.headway; const w=1+(S.opened[r.ref].pax||0); tot+=o.s*w; wt+=w; }
   if(wt) S.sat=tot/wt;
 }
-function stopMood(si){ const w=S.waiting[si]||0, sh=S.shelters[si]; let m=100-w*1.3+(sh?10:0)+suMood(si); if(raining()&&!sh) m-=25; return clamp(m,0,100); }
+function stopMood(si){ if(!inService()) return 70; const w=S.waiting[si]||0, sh=S.shelters[si]; let m=100-w*1.3+(sh?10:0)+suMood(si); if(raining()&&!sh) m-=25; return clamp(m,0,100); }
 function stopSatFactor(si){ let best=0, comp=false; for(const ref of stopRoutes[si]) if(S.opened[ref]){ best=Math.max(best,rsat(ref)); if(S.comp.routes.includes(ref)) comp=true; } return (.5+best/100)*(comp?.8:1); }
 
 /* ---------- Simulation ---------- */
@@ -234,14 +234,18 @@ function spawnFactor(si){
 function addMoney(v,cat){ S.money+=v; const t=today(); t[cat]=(t[cat]||0)+Math.abs(v); }
 function step(dt){
   const prevDay=day(),prevH=Math.floor(hour()),prev10=Math.floor(S.t/10);
-  S.t+=dt; const h=hour();
-  for(const si of servedStops()){ const cap=S.shelters[si]?120:80; S.waiting[si]=Math.min(cap,(S.waiting[si]||0)+.022*stopW[si]*spawnFactor(si)*dt); }
+  const wasSvc=inService(); S.t+=dt; const h=hour(), svc=inService(h);
+  if(svc) for(const si of servedStops()){ const cap=S.shelters[si]?120:80; S.waiting[si]=Math.min(cap,(S.waiting[si]||0)+.022*stopW[si]*spawnFactor(si)*dt); }
+  else for(const si of servedStops()){ const w=S.waiting[si]; if(w) S.waiting[si]=w<.5?0:w*Math.max(0,1-.06*dt); }
+  if(wasSvc&&!svc&&S.buses.length){ notify(`${fmtH(svcE())}: hết giờ chạy. Xe ngừng đón khách, trả nốt khách rồi về bãi. ${fmtH(svcS())} chạy lại`,'sleep'); news('Xe buýt kết thúc ngày làm việc, các trạm tạm đóng đến sáng.'); }
+  if(!wasSvc&&svc&&S.buses.length){ notify(`${fmtH(svcS())}: xe rời bãi, bắt đầu chạy tuyến`,'sunrise'); }
   for(const d of S.drivers) addMoney(-driverWage(d)/1440*dt,'wage');
   for(const b of S.buses){
-    const M=MODELS[b.m]; addMoney(-M.upk/1440*dt,'upk');
+    const M=MODELS[b.m]; addMoney(-M.upk/1440*dt*(b.park&&S.t>=(b.ret||0)?.4:1),'upk');
     if(b.st!=='ok'){ if(S.t>=b.until) finishStatus(b); continue; }
     if(!b.r) continue; const r=routeById[b.r]; if(!r){ b.r=null; continue; }
-    const drv=activeDriver(b,h); if(!drv) continue;
+    const ov=overnightBus(b,r,M,dt); if(ov===true) continue;
+    const drv=ov==='drive'?(busDrivers(b)[0]):activeDriver(b,h); if(!drv) continue;
     if(b.dw>0){ b.dw-=dt; continue; }
     const dr=r.dirs[b.dir], before=b.s;
     b.s+=M.speed*eventSpeed(r)*(.94+.03*drv.skill)*dt;
@@ -251,7 +255,7 @@ function step(dt){
     if(Math.random()<.00003*dt*(1+(100-b.cond)/12)*(1.4-.1*drv.skill)*M.rel*(raining()?1.3:1)) breakdown(b,r);
     else if(S.opt.automaint&&b.cond<35&&b.dw<=0&&b.l===0) startMaint(b,true);
   }
-  if(Math.floor(S.t/10)!==prev10) updateSat(.18);
+  if(Math.floor(S.t/10)!==prev10&&svc) updateSat(.18);
   if(Math.floor(hour())!==prevH) hourly();
   if(day()!==prevDay) newDay(prevDay);
 }
@@ -262,9 +266,9 @@ function arrive(b,r,M){
   const dr=r.dirs[b.dir], si=dr.si[b.k], last=b.k>=dr.si.length-1;
   let off=last?b.l:(b.dest[b.k]||0); off=Math.min(off,b.l); delete b.dest[b.k]; b.l-=off;
   const ss=S.ss[si]||(S.ss[si]=[0,0]); ss[1]+=off; const ts=S.td.ss||(S.td.ss={}); const t2=ts[si]||(ts[si]=[0,0]); t2[1]+=off;
-  if(cab&&cab.id===b.id) cabArrive(b,si,last?0:Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l),off);
+  if(cab&&cab.id===b.id) cabArrive(b,si,last||!inService()?0:Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l),off);
   if(last){ b.dir^=1; b.k=0; b.s=r.dirs[b.dir].sd[0]; b.dest={}; b.l=0; b.trips=(b.trips||0)+1; b.dw=8+off*.06; return; }
-  const on=Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l);
+  const on=inService()?Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l):0;
   S.waiting[si]=(S.waiting[si]||0)-on; b.l+=on; if(on>0) boardDest(b,dr,b.k,on);
   b.k++;
   if(on>0){ const rev=on*S.fare; addMoney(rev,'fare'); S.xp+=Math.round(on*(S.sat>=80?1.2:1)); S.paxTotal+=on; ss[0]+=on; t2[0]+=on;
@@ -312,7 +316,6 @@ function hourly(){
     notify(S.event.txt,evIcon(S.event)); news(S.event.txt);
   }
   const hr=Math.floor(hour()); if(hr===6) notify('Giờ cao điểm sáng! Khách đổ ra trạm','sunrise'); if(hr===17) notify('Giờ cao điểm chiều! Tăng xe cho tuyến đông','fire');
-  if(hr===22&&S.buses.length) notify('22h: hết giờ làm, xe về nghỉ đêm. 5h sáng chạy lại','sleep');
   if(Math.random()<.25) news(rnd(NEWS_FLAVOR));
   checkAch(); checkMissionsLive();
   S.rec.maxBuses=Math.max(S.rec.maxBuses||0,S.buses.length); S.rec.maxRoutes=Math.max(S.rec.maxRoutes||0,Object.keys(S.opened).length); S.rec.maxSat=Math.max(S.rec.maxSat||0,Math.round(openRoutes().length?S.sat:0));
@@ -497,6 +500,49 @@ function focusRoute(r){ if(!mapReady||routeVisible(r)) return; const c=map.getCe
   for(const d of r.dirs) for(const p of d.g){ const dd=dist(p,[c.lat,c.lng]); if(dd<bd){ bd=dd; best=p; } }
   if(best) map.easeTo({center:[best[1],best[0]],offset:[0,-innerHeight*.2],duration:650}); }
 function fitWhole(ref){ const r=routeById[ref]; if(!r) return; const sh=$('#sheet'); toggleSheetSize(false); const h=sh.classList.contains('closed')?0:innerHeight*.4; fitRoutes([r],true,Math.max(40,h-30)); }
+/* ---------- v6: Giờ chạy xe (mặc định 4:30 – 22:00) ---------- */
+const SHIFT_SPLIT=13.5;
+const svcS=()=>(S.opt.svcStart??270)/60, svcE=()=>(S.opt.svcEnd??1320)/60;
+function inService(h=hour()){ const a=svcS(), e=svcE(); return e>a?(h>=a&&h<e):(h>=a||h<e); }
+function shiftRange(k){ const a=svcS(), e=svcE(); return k==='sang'?[a,SHIFT_SPLIT]:k==='chieu'?[SHIFT_SPLIT,e]:[a,e]; }
+const fmtH=h=>{ const m=Math.round(h*60)%1440; return Math.floor(m/60)+':'+String(m%60).padStart(2,'0'); };
+const fmtHs=h=>{ const m=Math.round(h*60)%1440; return Math.floor(m/60)+'h'+(m%60?String(m%60).padStart(2,'0'):''); };
+const shiftTxt=k=>{ const r=shiftRange(k); return fmtHs(r[0])+'–'+fmtHs(r[1]); };
+function busDepot(b){ const r=b.r&&routeById[b.r]; const d=r&&routeDepot(r); if(d) return d;
+  const p=b._ll||(r?(()=>{ const q=posAt(r.dirs[b.dir]||r.dirs[0],b.s); return [q.lat,q.lng]; })():CENTER); let best=null,bd=1e18;
+  for(const id of S.depots){ const dp=D.depotById[id]; if(!dp) continue; const dd=dist(p,dp.p); if(dd<bd){ bd=dd; best=dp; } } return best; }
+/* gọi mỗi bước mô phỏng cho xe đang 'ok' có tuyến; trả về true nếu xe không chạy tuyến bình thường */
+function overnightBus(b,r,M,dt){
+  if(inService()){
+    if(b.park){ b.park=0; b.ret=0; b.endT=undefined; placeBus(b,b.r); b.dw=Math.random()*18; }
+    return false; }
+  if(b.park) return true;
+  if(b.endT===undefined) b.endT=S.t;
+  if(b.l>0&&S.t-b.endT<45&&busDrivers(b).length) return 'drive';   // trả nốt khách tại trạm của họ
+  // còn khách sau 45 phút: cho xuống hết ở trạm kế tiếp, rồi về bãi
+  const dr=r.dirs[b.dir]||r.dirs[0], q=posAt(dr,b.s);
+  if(b.l>0){ const si=dr.si[Math.min(b.k,dr.si.length-1)]; const ss=S.ss[si]||(S.ss[si]=[0,0]); ss[1]+=b.l; b.l=0; b.dest={}; }
+  const dp=busDepot(b); b.park=1; b.from=[q.lat,q.lng]; b.depot=dp?dp.id:null; b.retS=S.t;
+  const d=dp?dist(b.from,dp.p):0; b.ret=S.t+Math.min(60,d/(M.speed*1.3)); return true; }
+function skipNight(){ if(inService()) return; let n=0; while(!inService()&&n<1500){ step(2); n++; } toast('Đã tua tới giờ xe chạy lại '+fmtH(svcS()),'sunrise'); save(); }
+function svcPill(){ const el=$('#nightpill'); if(!el) return; const on=!inService()&&S.buses.length>0;
+  el.classList.toggle('hidden',!on||!!cab); if(!on) return;
+  const back=S.buses.filter(b=>b.r&&b.st==='ok'&&!b.park).length, ret=S.buses.filter(b=>b.park&&S.t<b.ret).length;
+  const ff=S.opt.nightFF&&!back&&!ret;
+  setHtml('nighttxt',`<b>Nghỉ đêm</b> · chạy lại lúc ${fmtH(svcS())}${back?` · ${back} xe trả nốt khách`:ret?` · ${ret} xe đang về bãi`:''}${ff?' · <i>đang tua nhanh ×10</i>':''}`); }
+/* vẽ xe đang về bãi và số xe nghỉ ở mỗi bãi */
+function drawOvernight(g,W,H,z){
+  const parked={}; const sc=clamp(1+(z-13)*.3,.7,1.9);
+  for(const b of S.buses){ if(!b.park) continue;
+    if(S.t<b.ret&&b.from&&b.depot&&D.depotById[b.depot]){ const dp=D.depotById[b.depot], f=clamp((S.t-b.retS)/((b.ret-b.retS)||1),0,1), la=b.from[0]+(dp.p[0]-b.from[0])*f, ln=b.from[1]+(dp.p[1]-b.from[1])*f;
+      const pt=map.project([ln,la]); if(pt.x<-40||pt.y<-40||pt.x>W+40||pt.y>H+40) continue; const pd=map.project([dp.p[1],dp.p[0]]), ang=Math.atan2(pd.y-pt.y,pd.x-pt.x), sp=spriteFor(b);
+      g.save(); g.translate(pt.x,pt.y); g.rotate(ang); g.scale(sc,sc); g.globalAlpha=.85; g.drawImage(sp.c,-sp.w/2,-sp.h/2,sp.w,sp.h); g.restore(); g.globalAlpha=1;
+      g.font='800 10px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; const tw=g.measureText('về bãi').width+10; g.fillStyle='rgba(30,41,59,.85)'; g.beginPath(); g.roundRect(pt.x-tw/2,pt.y-12*sc-16,tw,15,7); g.fill(); g.fillStyle='#fde68a'; g.fillText('về bãi',pt.x,pt.y-12*sc-8.5); }
+    else if(b.depot) parked[b.depot]=(parked[b.depot]||0)+1; }
+  for(const id in parked){ const dp=D.depotById[id]; if(!dp) continue; const q=map.project([dp.p[1],dp.p[0]]); if(q.x<-40||q.y<-40||q.x>W+40||q.y>H+40) continue;
+    const s=z>=13?34:24, x=q.x+s/2-2, y=q.y-s-2, t=`${parked[id]} xe`; g.font='900 11px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; const tw=g.measureText(t).width+26;
+    g.fillStyle='#1e293b'; g.beginPath(); g.roundRect(x-4,y-9,tw,18,9); g.fill(); if(iconImg.sleep.ok) g.drawImage(iconImg.sleep,x-2,y-8,16,16); g.fillStyle='#fff'; g.fillText(t,x+12+tw/2-13,y+.5); }
+  g.textBaseline='alphabetic'; }
 /* ---------- Map (MapLibre, kiểu bản đồ tối giản tự làm) ---------- */
 function lightStyle(){
   const roadW=(a,b)=>['interpolate',['exponential',1.5],['zoom'],10,a,16,b];
@@ -623,7 +669,7 @@ function frame(ts){
   requestAnimationFrame(frame);
   if(S.opt.fps===30&&(frameSkip^=1)) return;
   const dtR=Math.min(.1,(ts-(lastTs||ts))/1000); lastTs=ts;
-  if(speedMul>0&&!createMode){ let dt=dtR*MIN_PER_SEC*speedMul*(cab&&cab.slow?CAB_RATE:1); while(dt>0){ const d=Math.min(dt,1); step(d); dt-=d; } }
+  if(speedMul>0&&!createMode){ const nff=S.opt.nightFF&&!cab&&!inService()&&!S.buses.some(b=>b.r&&b.st==='ok'&&(!b.park||S.t<b.ret)); let dt=dtR*MIN_PER_SEC*speedMul*(cab&&cab.slow?CAB_RATE:1)*(nff?10:1); while(dt>0){ const d=Math.min(dt,1); step(d); dt-=d; } }
   if(mapReady) render(dtR);
   uiT+=dtR; slowT+=dtR;
   if(uiT>.3){ uiT=0; updateHud(); }
@@ -647,7 +693,7 @@ function render(dt){
   for(const id of S.depots){ const dp=D.depotById[id]; if(!dp) continue; const q=map.project([dp.p[1],dp.p[0]]); if(q.x<-40||q.y<-40||q.x>W+40||q.y>H+40) continue; const s=z>=13?34:24; if(iconImg.depot.ok) g.drawImage(id==='bt'?iconImg.office:iconImg.depot,q.x-s/2,q.y-s,s,s); }
   // trạm
   if(stopScreen.length){
-    const rad=z>=16?7:z>=14?5.5:z>=13?4:3, showFace=z>=14.5&&!createMode;
+    const closed=!inService(), rad=z>=16?7:z>=14?5.5:z>=13?4:3, showFace=z>=14.5&&!createMode&&!closed;
     for(const [si,x,y] of stopScreen){
       const w=S.waiting[si]||0;
       if(createMode){ const i=createMode.stops.indexOf(si);
@@ -657,8 +703,9 @@ function render(dt){
       const isPrev=previewRef&&!stopRoutes[si].some(r=>S.opened[r]);
       const nu=suCount(si); g.beginPath(); g.arc(x,y,rad+2+(nu>=3?1:0),0,6.283); g.fillStyle=nu>=SU_KEYS.length?'#f59e0b':nu>=3?'#7c3aed':S.shelters[si]||nu?'#1d4ed8':'#fff'; g.fill();
       if(nu&&z>=15.5&&!isPrev){ let ix=x-(nu*16)/2; const iy=y+rad+4; g.fillStyle='rgba(255,255,255,.94)'; g.beginPath(); g.roundRect(ix-3,iy-2,nu*16+5,19,9); g.fill(); for(const k of SU_KEYS) if(hasSU(si,k)){ const im=iconImg[STOP_UPS[k].ic]; if(im&&im.ok) g.drawImage(im,ix,iy,16,16); ix+=16; } }
-      g.beginPath(); g.arc(x,y,rad,0,6.283); g.fillStyle=isPrev?'#fff':(w<15?'#22c55e':w<35?'#facc15':w<55?'#fb923c':'#ef4444'); g.fill();
+      g.beginPath(); g.arc(x,y,rad,0,6.283); g.fillStyle=isPrev?'#fff':closed?'#64748b':(w<15?'#22c55e':w<35?'#facc15':w<55?'#fb923c':'#ef4444'); g.fill();
       if(isPrev){ g.lineWidth=2; g.strokeStyle=routeById[previewRef].color; g.stroke(); }
+      if(closed&&z>=15&&!isPrev&&iconImg.sleep.ok) g.drawImage(iconImg.sleep,x+rad-2,y-rad-13,13,13);
       if(showFace&&!isPrev){ const im=iconImg[faceOf(stopMood(si))]; if(im&&im.ok) g.drawImage(im,x+rad-2,y-rad-14,16,16);
         if(w>=1){ g.font='700 10px system-ui,sans-serif'; g.textAlign='left'; g.lineWidth=3; g.strokeStyle='#fff'; g.strokeText(Math.floor(w),x+rad+15,y-rad-3); g.fillStyle='#0f172a'; g.fillText(Math.floor(w),x+rad+15,y-rad-3); } }
     }
@@ -666,10 +713,11 @@ function render(dt){
   }
   // xe buýt
   const sc=clamp(1+(z-13)*.3,.7,1.9); g.textAlign='center'; g.textBaseline='middle';
-  for(const b of S.buses){ b._p=null; if(!b.r||b.st==='maint'||b.st==='repair') continue; const r=routeById[b.r]; if(!r) continue; const dr=r.dirs[b.dir]||r.dirs[0];
+  drawOvernight(g,W,H,z);
+  for(const b of S.buses){ b._p=null; if(!b.r||b.st==='maint'||b.st==='repair'||b.park) continue; const r=routeById[b.r]; if(!r) continue; const dr=r.dirs[b.dir]||r.dirs[0];
     const p=posAt(dr,b.s),pt=map.project([p.lng,p.lat]); if(pt.x<-40||pt.y<-40||pt.x>W+40||pt.y>H+40) continue; b._p=[pt.x,pt.y];
     const A=dr.g[p.i],B=dr.g[Math.min(p.i+1,dr.g.length-1)],pa=map.project([A[1],A[0]]),pb=map.project([B[1],B[0]]);
-    const ang=Math.atan2(pb.y-pa.y,pb.x-pa.x), sp=spriteFor(b), act=b.st==='ok'&&activeDriver(b,h);
+    const ang=Math.atan2(pb.y-pa.y,pb.x-pa.x), sp=spriteFor(b), act=b.st==='ok'&&(activeDriver(b,h)||(!inService()&&b.l>0&&busDrivers(b).length>0));
     g.save(); g.translate(pt.x,pt.y); g.rotate(ang); g.scale(sc,sc); if(!act) g.globalAlpha=.55;
     if(night&&act){ g.fillStyle='rgba(255,240,170,.35)'; g.beginPath(); g.moveTo(sp.w/2-2,0); g.arc(sp.w/2-2,0,30,-.42,.42); g.fill(); }
     g.drawImage(sp.c,-sp.w/2,-sp.h/2,sp.w,sp.h); g.restore(); g.globalAlpha=1;
@@ -712,7 +760,7 @@ function setTab(t,noOpen){ curTab=t; document.querySelectorAll('#tabs button').f
 const badge=(r,small)=>`<span class="badge${small?' sm':''}" style="background:${r.color}">${esc(r.ref)}</span>`;
 const fires=n=>`<span class="fires">${ICON('fire',14).repeat(n)}</span>`;
 const segBtns=(key,cur,items)=>`<div class="seg">${items.map(([v,l,ic])=>`<button data-sub="${key}:${v}" class="${cur===v?'on':''}">${ic?ICON(ic,16):''}${l}</button>`).join('')}</div>`;
-const SHIFT_TXT={sang:'5h–13h30',chieu:'13h30–22h',full:'5h–22h'};
+
 const condColor=c=>c>=70?'#22c55e':c>=45?'#eab308':'#ef4444';
 const tAgo=t=>`N${Math.floor(t/1440)+1} ${hhmm(t)}`;
 
@@ -768,7 +816,9 @@ function showRoute(ref,keep){
 
 /* ---------- Fleet ---------- */
 function busStatus(b){ if(b.st==='broken') return ['r','Hư giữa đường','broken']; if(b.st==='repair') return ['y','Đang sửa · xong '+hhmm(b.until),'tow']; if(b.st==='maint') return ['y','Bảo dưỡng · xong '+hhmm(b.until),'wrench'];
-  if(!b.r) return ['g','Đậu ở bãi','depot']; if(!busDrivers(b).length) return ['r','Thiếu tài xế!','driver']; if(!activeDriver(b)) return ['g','Ngoài ca, nghỉ','sleep']; return ['ok','Đang chạy','play']; }
+  if(!b.r) return ['g','Đậu ở bãi','depot'];
+  if(b.park) return S.t<b.ret?['g','Hết giờ · đang về bãi','depot']:['g','Nghỉ đêm ở bãi · chạy lại '+fmtH(svcS()),'sleep'];
+  if(!inService()) return ['y','Hết giờ · trả nốt khách','sleep']; if(!busDrivers(b).length) return ['r','Thiếu tài xế!','driver']; if(!activeDriver(b)) return ['g','Ngoài ca, nghỉ','sleep']; return ['ok','Đang chạy','play']; }
 function busCard(b){
   const M=MODELS[b.m], r=b.r&&routeById[b.r], [sc,stx,sic]=busStatus(b), f=b.l/M.cap, c=Math.round(b.cond??100);
   return `<div class="card bus" data-bus="${b.id}"><div class="bico" style="--c:${b.color||M.color}">${ICON(M.icon,44)}</div><div class="grow"><div class="t">${r?badge(r,1):'<span class="badge sm park">P</span>'} #${b.id} ${M.name}</div>
@@ -784,7 +834,7 @@ function showBus(id,keep){
   const dests=Object.entries(b.dest||{}).filter(([k,v])=>v>0).sort((a,c)=>+a[0]-+c[0]).slice(0,4);
   const dr=r&&r.dirs[b.dir];
   openSheet(`<h2>${ICON(M.icon,34)} Xe #${b.id} <span class="h2t">${M.name}</span></h2>
-    <div class="sub"><span class="st ${sc}">${ICON(sic,14)} ${stx}</span>${r&&dr?` · ${badge(r,1)} hướng về ${esc(D.stops[dr.si[dr.si.length-1]][0])}`:''}</div>
+    <div class="sub"><span class="st ${sc}">${ICON(sic,14)} ${stx}</span>${r&&dr&&!b.park?` · ${badge(r,1)} hướng về ${esc(D.stops[dr.si[dr.si.length-1]][0])}`:''}</div>
     <div class="kpi"><div>${ICON('people',16)} Khách trên xe<b>${b.l}/${M.cap}</b></div><div>${ICON('chart',16)} Đã chạy<b>${Math.round(b.km)} km · ${b.trips||0} lượt</b></div>
       <div>${ICON('wrench',16)} Tình trạng<b style="color:${condColor(c)}">${c}%</b></div><div>${ICON('calendar',16)} Tuổi xe<b>${ages} ngày · tối đa ${mc}%</b></div></div>
     ${b.r&&b.st!=='maint'&&b.st!=='repair'?`<div class="row cabrow"><button class="btn cabgo" data-cab="${b.id}:driver">${ICON('driver',20)} Góc nhìn trong xe</button><button class="btn y" data-cab="${b.id}:passenger">${ICON('people',20)} Ghế khách</button></div>`:''}
@@ -819,7 +869,7 @@ function renderDrivers(head){
   const busOpts=d=>['<option value="">Chưa giao xe</option>'].concat(S.buses.map(b=>`<option value="${b.id}" ${d.bus===b.id?'selected':''}>Xe #${b.id} ${b.r?'· tuyến '+esc(b.r):'· ở bãi'}</option>`)).join('');
   openSheet(`${head}<div class="sub">${S.drivers.length} tài xế · lương ${fmt(total)}/ngày. Xe chỉ chạy khi có tài xế trong ca. Tài xế giỏi chạy nhanh, êm, ít hư xe.</div>
     ${S.drivers.map(d=>`<div class="card drv col"><div class="row">${ICON('driver',34)}<div class="grow"><div class="t">${esc(d.name)} <span class="stars">${stars(d.skill)}</span></div><div class="m">${fmt(driverWage(d))}/ngày · ${onShift(d,hour())?'<b style="color:#16a34a">đang trong ca</b>':'ngoài ca'}</div></div><button class="btn r mini" data-fire="${d.id}">Cho nghỉ</button></div>
-      <div class="row"><select data-shift="${d.id}">${Object.entries(SHIFTS).map(([k,s])=>`<option value="${k}" ${d.shift===k?'selected':''}>${s.n} ${SHIFT_TXT[k]}${s.mul>1?' (lương ×'+s.mul+')':''}</option>`).join('')}</select><select data-drvbus="${d.id}">${busOpts(d)}</select></div></div>`).join('')||'<div class="empty">Chưa có tài xế.</div>'}
+      <div class="row"><select data-shift="${d.id}">${Object.entries(SHIFTS).map(([k,s])=>`<option value="${k}" ${d.shift===k?'selected':''}>${s.n} ${shiftTxt(k)}${s.mul>1?' (lương ×'+s.mul+')':''}</option>`).join('')}</select><select data-drvbus="${d.id}">${busOpts(d)}</select></div></div>`).join('')||'<div class="empty">Chưa có tài xế.</div>'}
     <h3>${ICON('people',20)} Ứng viên hôm nay</h3><div class="sub">Danh sách đổi mỗi ngày.</div>
     ${S.cands.map(d=>`<div class="card drv">${ICON('driver',30)}<div class="grow"><div class="t">${esc(d.name)} <span class="stars">${stars(d.skill)}</span></div><div class="m">Lương ${fmt(d.wage)}/ngày (ca cả ngày ×1.6)</div></div><button class="btn y mini" data-hire="${d.id}">Thuê</button></div>`).join('')||'<div class="empty">Hết ứng viên, quay lại ngày mai.</div>'}`,{t:'fleet'});
 }
@@ -898,6 +948,7 @@ function showStop(si){
       <div>${ICON('up',18)} Lên xe hôm nay<b>${t[0]}</b></div><div>${ICON('pin',18)} Xuống xe hôm nay<b>${t[1]}</b></div>
       <div>Tổng lượt lên<b>${a[0].toLocaleString('vi-VN')}</b></div><div>Tổng lượt xuống<b>${a[1].toLocaleString('vi-VN')}</b></div></div>
     ${ct.length?`<div class="tip">${ICON('contract',20)}<span>Thuộc vùng hợp đồng: ${ct.map(c=>esc(c.n)).join(', ')}</span></div>`:''}
+    ${!inService()?`<div class="tip warn">${ICON('sleep',20)}<span><b>Ngoài giờ chạy</b> (${fmtH(svcE())} – ${fmtH(svcS())}): trạm tạm đóng, khách về nhà, không tính điểm chờ.</span></div>`:''}
     <div class="m">Tuyến đi qua: ${rs.map(r=>`<span data-route="${esc(r.ref)}">${badge(r,1)}</span>`).join(' ')}</div>
     <div class="ubox"><div class="ubh">${ICON('up',22)}<b>Ô nâng cấp trạm</b><span class="ucnt">${suCount(si)}/${SU_KEYS.length}</span></div>${stopUpGrid(si)}</div>`,{t:'stop',si});
 }
@@ -911,7 +962,7 @@ function renderMore(){
   if(s==='weather') return renderWeather(back); if(s==='notes') return renderNotes(back); if(s==='settings') return renderSettings(back); if(s==='credits') return renderCredits(back);
   const dots={missions:pendingClaims(),notes:S.unread||0,contracts:S.contracts.offers.length};
   openSheet(`<h2>${ICON('gear',28)} Thêm</h2><div class="hub">${HUB.map(([k,n,ic])=>`<button class="tile" data-${k==='guide'?'tut':'sub="more:'+k+'"'}>${ICON(ic,36)}<span>${n}</span>${dots[k]?`<i class="dot">${dots[k]}</i>`:''}</button>`).join('')}</div>
-    <div class="sub" style="text-align:center;margin-top:10px">Xe Buýt Sài Gòn v5 · dữ liệu © OpenStreetMap</div>`,{t:'more'});
+    <div class="sub" style="text-align:center;margin-top:10px">Xe Buýt Sài Gòn v6 · dữ liệu © OpenStreetMap</div>`,{t:'more'});
 }
 function renderMissions(back){
   const L=S.missions?S.missions.list:[], W=S.weekly;
@@ -948,6 +999,11 @@ function renderSettings(back){ const o=S.opt, onoff=v=>`<b class="${v?'on':'off'
     <button class="btn g full set" data-opt="music">${ICON('music',22)}<span>Nhạc nền (tự tạo)</span>${onoff(o.music)}</button>
     <button class="btn g full set" data-opt="automaint">${ICON('wrench',22)}<span>Tự bảo dưỡng xe dưới 35%</span>${onoff(o.automaint)}</button>
     <button class="btn g full set" data-opt="fps">${ICON('battery',22)}<span>Tiết kiệm pin (30 FPS)</span>${onoff(o.fps===30)}</button>
+    <h3>${ICON('moon',20)} Giờ chạy xe</h3>
+    <div class="svcrow"><label>Bắt đầu<select data-svc="start">${[240,270,300,330,360].map(m=>`<option value="${m}" ${o.svcStart===m?'selected':''}>${fmtH(m/60)}</option>`).join('')}</select></label>
+      <label>Kết thúc<select data-svc="end">${[1260,1290,1320,1350,1380,1440].map(m=>`<option value="${m}" ${o.svcEnd===m?'selected':''}>${m===1440?'24:00':fmtH(m/60)}</option>`).join('')}</select></label></div>
+    <div class="sub" style="margin:4px 0 8px">Hết giờ: xe ngừng đón khách, trả nốt khách rồi về bãi. Ca sáng ${shiftTxt('sang')}, ca chiều ${shiftTxt('chieu')}.</div>
+    <button class="btn g full set" data-opt="nightFF">${ICON('fast',22)}<span>Tự tua nhanh ban đêm (×10)</span>${onoff(o.nightFF)}</button>
     <h3>${ICON('textsize',20)} Cỡ chữ</h3><div class="seg">${[['sm','Nhỏ'],['md','Vừa'],['lg','Lớn'],['xl','Rất lớn']].map(([k,n])=>`<button data-fs="${k}" class="${o.fs===k?'on':''}">${n}</button>`).join('')}</div>
     <button class="btn g full" data-saveg>${ICON('save',20)} Lưu game ngay</button>
     <button class="btn r full" data-reset>${ICON('reset',20)} Chơi lại từ đầu</button>`,{t:'more'}); }
@@ -999,6 +1055,7 @@ function updateHud(){
   const br=S.buses.some(b=>b.st==='broken'); setHtml('fleetdot',br?'<i class="r"></i>':'');
   const cg=$('#cabgo'), sb=sheetCtx&&sheetCtx.t==='bus'&&S.buses.find(x=>x.id===sheetCtx.id), okb=sb&&sb.r&&sb.st!=='maint'&&sb.st!=='repair';
   if(cg){ cg.classList.toggle('hidden',!okb||!!cab); if(okb) { cg.dataset.cab=sb.id+':driver'; setTxt('cabgoid','#'+sb.id); } }
+  svcPill();
   const ev=$('#event'); if(S.event){ setHtml('event',ICON(evIcon(S.event),22)+'<span>'+esc(S.event.txt)+'</span>'); ev.classList.remove('hidden'); } else ev.classList.add('hidden');
 }
 /* ---------- WebAudio: âm thanh tự tạo bằng code ---------- */
@@ -1047,6 +1104,7 @@ function enterCab(id,seat){
   const b=S.buses.find(x=>x.id===id); if(!b) return;
   if(!b.r||!routeById[b.r]) return toast('Xe đang đậu ở bãi, hãy giao tuyến trước','depot');
   if(b.st==='maint'||b.st==='repair') return toast('Xe đang ở xưởng, chưa lên xe được','wrench');
+  if(b.park) return toast('Xe đang nghỉ đêm ở bãi, '+fmtH(svcS())+' chạy lại','sleep');
   if(cab){ setSeat(seat||cab.seat); return; }
   const c=map.getCenter();
   cab={id,seat:seat||'driver',saved:{center:[c.lng,c.lat],zoom:map.getZoom(),bearing:map.getBearing(),pitch:map.getPitch()},
@@ -1108,7 +1166,7 @@ function cabSky(force){ const ph=dayPhase(hour())+(raining()?'-r':''); if(!force
 function cabFrame(dt){
   const b=cabBus(); if(!b){ exitCab(); return; }
   if(b.st==='maint'||b.st==='repair'){ toast('Xe vào xưởng, bạn đã xuống xe','wrench'); exitCab(); return; }
-  if(!b.r||!routeById[b.r]){ toast('Xe đã về bãi','depot'); exitCab(); return; }
+  if(!b.r||!routeById[b.r]||b.park){ toast(b.park?'Hết giờ chạy, xe đã về bãi nghỉ đêm':'Xe đã về bãi','depot'); exitCab(); return; }
   const P=busPose(b); if(!P) return;
   // vị trí & hướng mượt
   if(!cab.pos){ cab.pos=P.ll.slice(); cab.brg=P.brg; }
@@ -1423,9 +1481,11 @@ function bindUI(){
   });
   document.body.addEventListener('change',e=>{ const s=e.target, ds=s.dataset;
     if(ds.assign){ const b=S.buses.find(x=>x.id===+ds.assign); if(b){ assign(b,s.value||null); refreshSheet(); } }
+    else if(ds.svc){ S.opt[ds.svc==='start'?'svcStart':'svcEnd']=+s.value; save(); toast(`Giờ chạy: ${fmtH(svcS())} – ${svcE()>=24?'24:00':fmtH(svcE())}`,'calendar'); renderMore(); }
     else if(ds.shift) setShift(+ds.shift,s.value);
     else if(ds.drvbus) assignDriver(+ds.drvbus,s.value||null);
     else if(ds.adddrv&&s.value) assignDriver(+s.value,+ds.adddrv); });
+  $('#nightskip').onclick=()=>{ sfx('click'); skipNight(); };
   $('.grab').onclick=()=>{ if($('#sheet').classList.contains('canpeek')) toggleSheetSize(); else closeSheet(); }; $('#sheetx').onclick=e=>{ e.stopPropagation(); closeSheet(); }; bindCab();
   let y0=null; $('#sheet').addEventListener('touchstart',e=>{ if($('#sheet-body').scrollTop<=0) y0=e.touches[0].clientY; },{passive:true});
   $('#sheet').addEventListener('touchmove',e=>{ if(y0===null) return; const dy=e.touches[0].clientY-y0, sh=$('#sheet');
@@ -1454,9 +1514,10 @@ async function boot(){
   if(!S.seen.tut) showTut(0); else if(upgraded||!S.seen.v3) showWhatsNew();
   if(S.seen.tut&&S.seen.v3&&!S.seen.v4) setTimeout(()=>notify('Mới: Góc nhìn trong xe! Chọn một xe buýt rồi bấm "Vào xe" để ngồi ghế tài xế hoặc ghế khách','bus'),1500);
   if(S.seen.tut&&S.seen.v4&&!S.seen.v5) setTimeout(()=>notify('Mới: Ô nâng cấp trạm (mái che, ghế, bảng điện tử, đèn, cây xanh, vịnh đỗ), nâng cấp bãi xe, và chọn tuyến không còn tự thu nhỏ bản đồ','up'),1800);
-  S.seen.v3=1; S.seen.v4=1; S.seen.v5=1; save();
+  if(S.seen.tut&&S.seen.v5&&!S.seen.v6) setTimeout(()=>notify('Mới: Giờ chạy xe 4:30 – 22:00. Hết giờ xe ngừng đón khách và về bãi nghỉ đêm; chỉnh giờ trong Thêm › Cài đặt','moon'),2100);
+  S.seen.v3=1; S.seen.v4=1; S.seen.v5=1; S.seen.v6=1; save();
   setInterval(save,10000);
-  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,enterCab,exitCab,buyStopUp,bulkRoute,buyDepotUp,showRoute,showStop,setSeat,toggleReal,get cab(){return cab;},finishCreate,confirmCreate,get map(){return map;}};
+  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,enterCab,exitCab,inService,skipNight,showBus,save,buyStopUp,bulkRoute,buyDepotUp,showRoute,showStop,setSeat,toggleReal,get cab(){return cab;},finishCreate,confirmCreate,get map(){return map;}};
   requestAnimationFrame(frame);
 }
 boot().catch(e=>{ const p=$('#loading p'); if(p) p.textContent='Lỗi tải game: '+e.message; console.error(e); });

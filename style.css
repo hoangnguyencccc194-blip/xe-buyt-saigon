@@ -333,3 +333,9 @@ body.incab #toasts{top:calc(62vh*84/520 + 92px)}
 .ugrid.dep .utile{background:#fff}
 .sstars{color:#f59e0b;font-size:14px;letter-spacing:-1px;white-space:nowrap}
 @media (min-width:420px){.ugrid{grid-template-columns:repeat(3,1fr)}.ugrid.dep{grid-template-columns:1fr 1fr}}
+/* ===== v6: giờ chạy ===== */
+#nightpill{pointer-events:auto;align-self:center;display:flex;align-items:center;gap:7px;background:linear-gradient(90deg,#1e1b4b,#312e81);color:#e0e7ff;font-size:12.5px;border-radius:14px;padding:6px 6px 6px 10px;box-shadow:0 6px 18px #0004;max-width:96vw;animation:pop .4s}
+#nightpill b{color:#fff}#nightpill i{color:#fde68a;font-style:normal}
+#nightpill button{border:0;font:inherit;font-weight:800;font-size:12px;background:#fbbf24;color:#422006;border-radius:10px;padding:6px 9px;white-space:nowrap;box-shadow:0 2px 0 #b45309}
+.svcrow{display:flex;gap:8px}.svcrow label{flex:1;display:flex;flex-direction:column;font-size:12px;font-weight:700;color:var(--mut);gap:4px}
+.svcrow select{font:inherit;font-size:15px;padding:9px;border-radius:12px;border:2px solid #e2e8f0;background:#fff}
