@@ -94,5 +94,29 @@
   "title": "",
   "author": "Tự tạo bằng code WebAudio trong game",
   "license": "Không dùng file âm thanh bên ngoài"
+ },
+ {
+  "what": "Ảnh đường phố thật (nút \"Ảnh thật\" trong góc nhìn trong xe)",
+  "title": "Mapillary – ảnh đường phố do cộng đồng chụp, tải qua Mapillary Graph API theo vị trí xe",
+  "author": "Người chụp ghi trên từng ảnh / © Mapillary",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://www.mapillary.com"
+ },
+ {
+  "what": "Nhà 3D trong góc nhìn trong xe",
+  "title": "Lớp building (OpenMapTiles/OpenFreeMap), dựng khối theo chiều cao OSM",
+  "author": "© OpenMapTiles, © OpenStreetMap contributors",
+  "license": "ODbL 1.0",
+  "licenseUrl": "https://opendatacommons.org/licenses/odbl/",
+  "source": "https://openfreemap.org/"
+ },
+ {
+  "what": "Cabin, vô lăng, đồng hồ, cửa sổ, ghế, mưa trên kính, cần gạt, chuông trạm",
+  "title": "Vẽ tay bằng SVG/CSS/Canvas và WebAudio trong js/game.js",
+  "author": "Tự làm cho game này",
+  "license": "Original work",
+  "licenseUrl": "",
+  "source": ""
  }
 ]

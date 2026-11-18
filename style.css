@@ -186,3 +186,117 @@ body[data-tsz="xl"] #sheet,body[data-tsz="xl"] #modal .dlg,body[data-tsz="xl"] #
 body[data-tsz="lg"] #hud,body[data-tsz="lg"] #tabs{zoom:1.05}
 body[data-tsz="xl"] #hud,body[data-tsz="xl"] #tabs{zoom:1.1}
 @media (max-width:370px){.pill{padding:5px 9px 5px 6px;font-size:14px}.pill.rb{width:34px;height:34px}}
+
+/* ===== v4: Góc nhìn trong xe ===== */
+#cabgo{pointer-events:auto;align-self:center;border:0;font:inherit;font-weight:800;font-size:13px;color:#fff;background:linear-gradient(90deg,#ea580c,#f59e0b);border-radius:999px;padding:8px 14px;box-shadow:0 6px 18px #0004,0 3px 0 #9a3412;display:flex;align-items:center;gap:6px;animation:pop .35s}
+#cabgo .cgi{width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-sizing:border-box;position:relative}
+.cabrow{display:flex;gap:8px;margin:2px 0 10px}.cabrow .btn{flex:1}.btn.cabgo{background:linear-gradient(90deg,#ea580c,#f59e0b);box-shadow:0 3px 0 #9a3412}
+body.incab #hud,body.incab #tabs,body.incab #sheet,body.incab .fab,body.incab #tint,body.incab #rain,body.incab .maplibregl-ctrl-bottom-left{display:none!important}
+#cab{position:fixed;inset:0;z-index:760;overflow:hidden;pointer-events:auto;user-select:none;-webkit-user-select:none;font-family:"Be Vietnam Pro",system-ui,sans-serif}
+#cab>*,#cab .drv-only>*,#cab .pas-only>*{position:absolute}
+#cab .drv-only,#cab .pas-only{inset:0;pointer-events:none}
+#cab.seat-driver .pas-only,#cab.seat-passenger .drv-only,#cab.seat-driver .p-only,#cab.seat-passenger .d-only{display:none!important}
+#cab .pcards{inset:0;pointer-events:none}
+#cab .glass{pointer-events:none}
+#cab.seat-driver .glass,#cab.seat-driver #cabreal,#cab.seat-driver #cabtint{left:0;right:0;top:calc(62vh*84/520);bottom:calc(52vh - 22px)}
+#cab.seat-passenger .glass,#cab.seat-passenger #cabreal,#cab.seat-passenger #cabtint{left:4%;right:3%;top:21vh;bottom:36vh;border-radius:16px}
+#cabfx{left:0;top:0;width:100%;height:100%;pointer-events:none}
+#cabreal{opacity:0;transition:opacity .5s;overflow:hidden;background:#111}
+#cabreal.show{opacity:1}
+#cabreal img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s}
+#cabreal img.on{opacity:1}
+#cabreal .mcred{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;font-size:10px;color:#fff;background:#0009;padding:2px 8px;border-radius:8px;white-space:nowrap;pointer-events:auto;z-index:2}
+#cabreal .mcred a{color:#7dd3fc}
+#cab.seat-driver #cabreal .mcred{bottom:30px}
+#cabtint{pointer-events:none;transition:background 2s}
+#cabtint[data-ph=dusk]{background:linear-gradient(180deg,rgba(255,120,70,.30),rgba(255,170,110,.12) 60%,rgba(120,60,90,.12))}
+#cabtint[data-ph=dawn]{background:linear-gradient(180deg,rgba(255,180,140,.22),rgba(200,210,255,.08))}
+#cabtint[data-ph=night]{background:rgba(6,12,38,.52)}
+#cab.wet #cabtint[data-ph=day]{background:rgba(70,85,105,.22)}
+#cab .frame{left:0;top:0;width:100%;height:62vh}
+#cab .dash{left:0;bottom:0;width:100%;height:52vh;filter:drop-shadow(0 -4px 8px #0006)}
+#cab[data-ph=night] .dash{filter:brightness(.8) drop-shadow(0 -4px 8px #0006)}
+#cab .mirror{left:-6px;top:calc(62vh*84/520 + 18vh);width:60px;height:86px}
+#cab .charm{left:84px;top:calc(62vh*84/520);width:30px;height:120px}
+#cab .charm i{position:absolute;left:14px;top:0;width:2px;height:60px;background:#7c4a1d}
+#cab .charm b{position:absolute;left:4px;top:56px;width:22px;height:30px;background:linear-gradient(135deg,#4ade80,#15803d);border-radius:0 80% 0 80%;transform:rotate(45deg);animation:sway 2.2s ease-in-out infinite alternate;transform-origin:50% 0}
+@keyframes sway{from{transform:rotate(38deg)}to{transform:rotate(52deg)}}
+.sbarw{width:40px;height:6px;border-radius:3px;overflow:hidden}.sbarw i{display:block;height:100%;width:0;background:#22c55e;border-radius:3px;transition:width .5s}
+/* thẻ trên cùng – ghế tài xế */
+#cab .ctop{left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:5px;height:62px}
+#cab .cref{width:58px;flex:none;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:900;font-size:24px;box-shadow:inset 0 -4px 0 #0003,0 0 0 3px #fff3;text-shadow:0 2px 0 #0003}
+#cab .ccard{background:#fbf3e4;border-radius:14px;display:flex;align-items:center;gap:5px;padding:4px 8px;box-shadow:0 3px 0 #d8c7a8;min-width:0;color:#1f2a2a}
+#cab .ccard.grow{flex:1}
+#cab .ccard span{display:flex;flex-direction:column;min-width:0;line-height:1.15}
+#cab .ccard small{font-size:10px;font-weight:700;color:#3f4a48}
+#cab .ccard b{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cab .ccard.c2,#cab .ccard.c3{flex:none;padding:4px 6px}
+#cab .ccard.c2 svg{color:#ea580c}
+#cab .ccard.c3{color:#1f2a2a}#cab .ccard.c3 b{font-size:15px}
+#cab .ccard i[data-k=wx]{display:flex}
+#cab .ccard.c2 b{font-size:16px}
+/* công cụ */
+#cab .ctools{right:44px;top:calc(62vh*84/520 + 8px);display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:3}
+#cab.seat-passenger .ctools{right:auto;left:7%;top:calc(21vh + 76px);align-items:flex-start}
+#cab .ctools button{border:0;font:inherit;font-weight:800;font-size:12px;color:#fff;background:#0f172aaa;backdrop-filter:blur(6px);border-radius:999px;padding:6px 11px 6px 8px;display:flex;align-items:center;gap:5px;box-shadow:0 0 0 1.5px #ffffff33}
+#cab .ctools button.on{background:#ea580c;box-shadow:0 0 0 2px #fed7aa}
+#cab .mnone{left:50%;transform:translateX(-50%);top:calc(62vh*84/520 + 46vh*.5);background:#0f172acc;color:#fff;font-size:12px;font-weight:700;padding:6px 12px;border-radius:12px;white-space:nowrap}
+#cab.seat-passenger .mnone{top:52vh}
+#cab .cstate{left:12px;top:calc(62vh*84/520 + 10px);background:#7c2d12dd;color:#fff;font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;white-space:nowrap}
+#cab.seat-passenger .cstate{top:auto;bottom:calc(36vh + 12px)}
+#cabboard{left:50%;top:30vh;transform:translate(-50%,-50%) scale(.6);opacity:0;background:#0f172ae6;color:#fff;border-radius:16px;padding:9px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:14px;font-weight:800;transition:all .35s cubic-bezier(.2,.9,.3,1.3);box-shadow:0 8px 24px #0006;pointer-events:none;min-width:180px}
+#cabboard.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#cabboard b{font-size:13px;color:#fde68a;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cabboard .on{color:#86efac;font-size:18px}#cabboard .off{color:#fca5a5;font-size:16px}
+#cab.seat-passenger #cabboard{top:44vh}
+/* nút dưới */
+#cab .cbtns{left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;gap:10px;z-index:3}
+#cab .cbtns button{flex:1;height:min(112px,13vh);border:0;border-radius:18px;font:inherit;font-weight:800;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:transform .1s}
+#cab .cbtns button:active{transform:scale(.96)}
+#cab.seat-driver .cbtns button{background:#fbf3e4;color:#14532d;box-shadow:0 4px 0 #cbb48e,0 8px 18px #0006}
+#cab.seat-driver .cbtns button[data-seat=driver]{color:#166534}
+#cab.seat-driver .cbtns button[data-seat=passenger]{color:#ea580c}
+#cab.seat-driver .cbtns button[data-cabexit]{color:#dc2626}
+#cab.seat-driver .cbtns button.on{background:#dcf5cf;box-shadow:0 0 0 3px #4ade80,0 4px 0 #86c27a,0 8px 18px #0006}
+#cab.seat-driver .cbtns button span{color:inherit}
+#cab.seat-driver .cbtns button[data-seat=passenger] span,#cab.seat-driver .cbtns button[data-cabexit] span{color:inherit}
+#cab.seat-passenger .cbtns button{background:#1d4744;color:#fff;box-shadow:0 0 0 1.5px #3f7f78,0 6px 16px #0007}
+#cab.seat-passenger .cbtns button.on{background:#ea7a1e;box-shadow:0 0 0 1.5px #fdba74,0 6px 16px #0007}
+#cab .cattr{left:6px;bottom:2px;font-size:8.5px;color:#ffffff80;z-index:3}
+/* ghế khách */
+#cab .win{left:4%;right:3%;top:21vh;bottom:36vh;border-radius:16px;box-shadow:0 0 0 200vmax #163532,inset 0 0 0 6px #0f2624,inset 0 0 30px #0008}
+#cab .ceil{left:0;right:0;top:52px;height:7vh;background:linear-gradient(180deg,#1b3d3a,#204845);border-bottom:3px solid #0e2725}
+#cab .ceil i{position:absolute;left:18%;right:18%;top:40%;height:7px;border-radius:5px;background:linear-gradient(90deg,#e6fffb,#a7f3d0);box-shadow:0 0 16px #a7f3d0aa}
+#cab .pole{left:6%;top:52px;bottom:30vh;width:11px;border-radius:6px;background:linear-gradient(90deg,#a16207,#facc15 45%,#ca8a04);box-shadow:2px 0 6px #0006}
+#cab .pole::after{content:"";position:absolute;left:-3px;top:40%;width:17px;height:16px;border-radius:4px;background:#2d3b3a}
+#cab .rail{left:0;right:0;top:calc(52px + 7vh + 8px);height:7px;background:linear-gradient(180deg,#d4d4d8,#71717a);box-shadow:0 2px 4px #0006}
+#cab .seats{left:0;bottom:0;width:100%;height:38vh}
+#cab .brand{left:0;right:0;bottom:calc(min(112px,13vh) + 30px);display:none}
+#cab .ptop{left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 52px);padding-top:env(safe-area-inset-top,0px);background:#0b1d1c;display:flex;align-items:center;gap:8px;padding-left:8px;padding-right:8px;border-bottom:2px solid #1f3d3a}
+#cab .led-ic{width:38px;height:36px;border-radius:9px;background:#1f4d4a;color:#fff;display:grid;place-items:center;font-size:24px;font-weight:900;flex:none}
+#cab .led{flex:1;min-width:0;height:34px;background:#120b03;border-radius:8px;overflow:hidden;position:relative;box-shadow:inset 0 0 0 1.5px #3b2a12;background-image:radial-gradient(#2a1b06 1px,transparent 1.2px);background-size:3px 3px}
+#cab .led span{position:absolute;white-space:nowrap;top:50%;transform:translateY(-50%);left:100%;font-weight:800;font-size:15px;color:#fbbf24;text-shadow:0 0 6px #f59e0b;animation:led 14s linear infinite}
+@keyframes led{from{left:100%}to{left:-180%}}
+#cab .sig{flex:none;display:flex}
+#cab .pc{display:flex;align-items:center;gap:8px;background:#0e2523e6;border:1.5px solid #3f7f78;border-radius:14px;padding:7px 12px;color:#fff;z-index:2}
+#cab .pc span{display:flex;flex-direction:column;line-height:1.15}
+#cab .pc b{font-size:20px;font-weight:900}#cab .pc small{font-size:11px;color:#cbd5e1;font-weight:700}
+#cab .pc svg{color:#fff}
+#cab .pc .gdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;margin-left:3px;vertical-align:1px}
+#cab .pc.l{left:7%;top:calc(21vh + 12px)}
+#cab .pc.r{right:6%;top:calc(21vh + 12px)}
+#cab .pc.r2{right:6%;top:calc(21vh + 72px)}
+#cab .pc i[data-k=wx]{display:flex}
+#cab.seat-passenger .cattr{color:#ffffff60}
+@media (max-height:700px){#cab .ccard small{font-size:9px}#cab .cbtns button{font-size:13px}}
+
+#cab .pc{position:absolute}
+body.incab #toasts{top:calc(62vh*84/520 + 92px)}
+#cab .ccard b[data-k=next]{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px;line-height:1.15}
+#cab .ccard.grow svg{flex:none;width:20px;height:20px}
+#cab .cref{width:52px;font-size:22px}
+#cab .ccard.c2 svg,#cab .ccard.c3 svg{width:24px;height:24px;flex:none}
+#cab .ccard.c2 b{font-size:15px}#cab .ccard.c3 b{font-size:14px}
+#cab .ccard.c2 small,#cab .ccard.c3 small{font-size:9px}
+#cab .ccard i[data-k=wx] svg{width:24px;height:24px}
+#cab.seat-passenger .cstate{bottom:calc(36vh + 34px)}

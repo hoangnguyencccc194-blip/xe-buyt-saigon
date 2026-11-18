@@ -16,3 +16,8 @@ Game code, all icons (js/icons.js) and on-map bus sprites: original work made fo
 - **Tìm đường cho tuyến tự tạo**: OSRM demo server (https://project-osrm.org/), phần mềm BSD-2-Clause, dữ liệu © OpenStreetMap contributors (ODbL). Nếu không kết nối được, game nối thẳng giữa các trạm.
 - **Âm thanh & nhạc nền**: tạo hoàn toàn bằng code WebAudio trong game, không dùng file âm thanh có bản quyền.
 - **Icon mới (tài xế, bãi xe, nhiệm vụ, ngân hàng, đối thủ, thời tiết…)**: tự thiết kế dạng SVG trong `js/icons.js`.
+
+## v4 – Góc nhìn trong xe
+- **Ảnh đường phố thật**: [Mapillary](https://www.mapillary.com), ảnh do cộng đồng chụp, giấy phép [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Tên người chụp và link ảnh gốc hiện ngay trên ảnh trong game. Game dùng client token công khai của Mapillary (đúng cách Mapillary thiết kế cho web app).
+- **Nhà 3D**: lớp building OpenMapTiles qua OpenFreeMap, © OpenStreetMap contributors (ODbL).
+- **Cabin tài xế, cửa sổ ghế khách, vô lăng, đồng hồ, mưa trên kính, cần gạt, chuông báo trạm**: tự vẽ bằng SVG/CSS/Canvas và WebAudio.

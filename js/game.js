@@ -256,6 +256,7 @@ function arrive(b,r,M){
   const dr=r.dirs[b.dir], si=dr.si[b.k], last=b.k>=dr.si.length-1;
   let off=last?b.l:(b.dest[b.k]||0); off=Math.min(off,b.l); delete b.dest[b.k]; b.l-=off;
   const ss=S.ss[si]||(S.ss[si]=[0,0]); ss[1]+=off; const ts=S.td.ss||(S.td.ss={}); const t2=ts[si]||(ts[si]=[0,0]); t2[1]+=off;
+  if(cab&&cab.id===b.id) cabArrive(b,si,last?0:Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l),off);
   if(last){ b.dir^=1; b.k=0; b.s=r.dirs[b.dir].sd[0]; b.dest={}; b.l=0; b.trips=(b.trips||0)+1; b.dw=8+off*.06; return; }
   const on=Math.min(Math.floor(S.waiting[si]||0),M.cap-b.l);
   S.waiting[si]=(S.waiting[si]||0)-on; b.l+=on; if(on>0) boardDest(b,dr,b.k,on);
@@ -549,7 +550,7 @@ function frame(ts){
   requestAnimationFrame(frame);
   if(S.opt.fps===30&&(frameSkip^=1)) return;
   const dtR=Math.min(.1,(ts-(lastTs||ts))/1000); lastTs=ts;
-  if(speedMul>0&&!createMode){ let dt=dtR*MIN_PER_SEC*speedMul; while(dt>0){ const d=Math.min(dt,1); step(d); dt-=d; } }
+  if(speedMul>0&&!createMode){ let dt=dtR*MIN_PER_SEC*speedMul*(cab&&cab.slow?CAB_RATE:1); while(dt>0){ const d=Math.min(dt,1); step(d); dt-=d; } }
   if(mapReady) render(dtR);
   uiT+=dtR; slowT+=dtR;
   if(uiT>.3){ uiT=0; updateHud(); }
@@ -565,6 +566,7 @@ function projectStops(){
 }
 function render(dt){
   const g=fxCtx,W=innerWidth,H=innerHeight; g.clearRect(0,0,W,H);
+  if(cab){ cabFrame(dt); if(cab){ cabRender(g,dt); if(rainCtx._on){ rainCtx.clearRect(0,0,W,H); rainCtx._on=0; } return; } }
   const h=hour(),night=h<5.5||h>19,z=map.getZoom();
   const a=tintFor(h).toFixed(2); if(a!==lastTint){ lastTint=a; $('#tint').style.background=`rgba(18,28,78,${a})`; }
   if(viewDirty){ projectStops(); viewDirty=false; }
@@ -708,6 +710,7 @@ function showBus(id,keep){
     <div class="sub"><span class="st ${sc}">${ICON(sic,14)} ${stx}</span>${r&&dr?` · ${badge(r,1)} hướng về ${esc(D.stops[dr.si[dr.si.length-1]][0])}`:''}</div>
     <div class="kpi"><div>${ICON('people',16)} Khách trên xe<b>${b.l}/${M.cap}</b></div><div>${ICON('chart',16)} Đã chạy<b>${Math.round(b.km)} km · ${b.trips||0} lượt</b></div>
       <div>${ICON('wrench',16)} Tình trạng<b style="color:${condColor(c)}">${c}%</b></div><div>${ICON('calendar',16)} Tuổi xe<b>${ages} ngày · tối đa ${mc}%</b></div></div>
+    ${b.r&&b.st!=='maint'&&b.st!=='repair'?`<div class="row cabrow"><button class="btn cabgo" data-cab="${b.id}:driver">${ICON('driver',20)} Góc nhìn trong xe</button><button class="btn y" data-cab="${b.id}:passenger">${ICON('people',20)} Ghế khách</button></div>`:''}
     ${dests.length?`<div class="m">${ICON('pin',14)} Khách sắp xuống: ${dests.map(([k,v])=>`${esc(D.stops[dr.si[+k]]?.[0]||'')} (${v})`).join(' · ')}</div>`:''}
     <h3>${ICON('stop',20)} Tuyến chạy</h3><select class="full" data-assign="${b.id}">${opts}</select>
     <h3>${ICON('driver',20)} Tài xế (${drv.length})</h3>
@@ -917,6 +920,8 @@ function updateHud(){
   const u=(S.unread||0); setHtml('belldot',u?`<i>${u>9?'9+':u}</i>`:'');
   const pc=pendingClaims()+(S.contracts.offers.length?1:0); setHtml('moredot',pc?'<i></i>':'');
   const br=S.buses.some(b=>b.st==='broken'); setHtml('fleetdot',br?'<i class="r"></i>':'');
+  const cg=$('#cabgo'), sb=sheetCtx&&sheetCtx.t==='bus'&&S.buses.find(x=>x.id===sheetCtx.id), okb=sb&&sb.r&&sb.st!=='maint'&&sb.st!=='repair';
+  if(cg){ cg.classList.toggle('hidden',!okb||!!cab); if(okb) { cg.dataset.cab=sb.id+':driver'; setTxt('cabgoid','#'+sb.id); } }
   const ev=$('#event'); if(S.event){ setHtml('event',ICON(evIcon(S.event),22)+'<span>'+esc(S.event.txt)+'</span>'); ev.classList.remove('hidden'); } else ev.classList.add('hidden');
 }
 /* ---------- WebAudio: âm thanh tự tạo bằng code ---------- */
@@ -929,6 +934,7 @@ function sfx(n){ if(!AC||!S||!S.opt.sfx) return; const now=performance.now(); if
   else if(n==='click'){ tone(660,t,.05,'triangle',.12); }
   else if(n==='buy'||n==='good'){ tone(523,t,.12,'triangle',.15); tone(659,t+.09,.12,'triangle',.15); tone(784,t+.18,.22,'triangle',.15); }
   else if(n==='level'){ [523,659,784,1047].forEach((f,i)=>tone(f,t+i*.1,.3,'triangle',.16)); tone(1568,t+.42,.5,'sine',.08); }
+  else if(n==='chime'){ tone(1175,t,.9,'sine',.13); tone(1568,t,.5,'sine',.04); tone(880,t+.38,1.2,'sine',.13); tone(1175,t+.38,.6,'sine',.04); }
   else if(n==='bad'){ tone(330,t,.25,'sawtooth',.08,master,180); tone(220,t+.18,.3,'sawtooth',.07,master,110); } }
 const SCALE=[0,2,4,7,9], CH=[[0,4,7],[9,12,16],[5,9,12],[7,11,14]];
 function startMusic(){ if(!AC||musicTimer) return; const bus=AC.createGain(); bus.gain.value=.11; const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800; bus.connect(lp); lp.connect(master);
@@ -939,6 +945,351 @@ function startMusic(){ if(!AC||musicTimer) return; const bus=AC.createGain(); bu
       if(beat%4===2) tone(base/4*Math.pow(2,ch[0]/12),next,.3,'sine',.25,bus);
       next+=.25; beat++; } },200); musicBus=bus; }
 function stopMusic(){ if(musicTimer){ clearInterval(musicTimer); try{ musicBus&&musicBus.disconnect(); }catch(e){} musicTimer=null; } }
+/* ---------- Góc nhìn trong xe (ghế tài xế / ghế khách) + Ảnh thật Mapillary ---------- */
+let cab=null;
+const CAB_RATE=1/30;           // chế độ "Thực tế": thời gian trong game chạy chậm 30 lần để xe trôi qua phố tự nhiên
+const CAB_FOCAL=1.5;           // MapLibre fov 36.87° → tiêu cự = 1.5 × chiều cao màn hình
+const XCFG=window.XB_CONFIG||{};
+const rad=d=>d*Math.PI/180;
+const angDiff=(a,b)=>((b-a+540)%360)-180;
+function geoBrg(a,b){ return (Math.atan2((b[1]-a[1])*Math.cos(rad(a[0])),b[0]-a[0])*180/Math.PI+360)%360; }
+function offLL(p,brg,m){ return [p[0]+Math.cos(rad(brg))*m/111320, p[1]+Math.sin(rad(brg))*m/(111320*Math.cos(rad(p[0])))]; }
+function cabBus(){ return cab&&S.buses.find(x=>x.id===cab.id); }
+function busPose(b){ const r=routeById[b.r]; if(!r) return null; const dr=r.dirs[b.dir]||r.dirs[0];
+  const p=posAt(dr,b.s), q=posAt(dr,Math.min(dr.len,b.s+18)); let a=[p.lat,p.lng], c=[q.lat,q.lng];
+  if(dist(a,c)<2){ const z=posAt(dr,Math.max(0,b.s-18)); c=a; a=[z.lat,z.lng]; }
+  return {ll:[p.lat,p.lng],brg:geoBrg(a,c),r,dr}; }
+const cabLow=()=>S.opt.fps===30;
+function cabCamCfg(){ const lowp=cabLow();
+  if(cab.seat==='driver') return lowp?{pitch:60,zoom:18}:{pitch:82,zoom:20.4};
+  return lowp?{pitch:60,zoom:18.2}:{pitch:82.5,zoom:19.9}; }
+
+/* ---------- Vào / ra ---------- */
+function enterCab(id,seat){
+  if(!mapReady) return toast('Bản đồ chưa tải xong','warn');
+  const b=S.buses.find(x=>x.id===id); if(!b) return;
+  if(!b.r||!routeById[b.r]) return toast('Xe đang đậu ở bãi, hãy giao tuyến trước','depot');
+  if(b.st==='maint'||b.st==='repair') return toast('Xe đang ở xưởng, chưa lên xe được','wrench');
+  if(cab){ setSeat(seat||cab.seat); return; }
+  const c=map.getCenter();
+  cab={id,seat:seat||'driver',saved:{center:[c.lng,c.lat],zoom:map.getZoom(),bearing:map.getBearing(),pitch:map.getPitch()},
+    pos:null,brg:null,wheel:0,turn:0,spd:0,lastS:b.s,lastT:S.t,lastDir:b.dir,chime:'',slow:true,real:false,drops:[],streaks:[],wipe:0,wipePrev:0,hudT:9,phase:'',low:cabLow(),
+    rq:{busy:false,at:null,brg:0,cur:null,cache:{},none:false}};
+  closeSheet(); closeModal();
+  const ui=$('#cab'); ui.innerHTML=cabHTML(); ui.classList.remove('hidden'); document.body.classList.add('incab');
+  ['dragPan','scrollZoom','touchZoomRotate','doubleClickZoom','keyboard','boxZoom'].forEach(k=>map[k]&&map[k].disable());
+  map.setMaxPitch(85); map.setMaxZoom(21);
+  cabStyle(true); if(!cab.low) addBuildings();
+  cabSky(true); setSeat(cab.seat,true); cabResize(); sfx('good');
+  toast(cab.low?'Chế độ tiết kiệm pin: góc nhìn đơn giản, không dựng nhà 3D':'Đang ngồi trên xe #'+id+' · tuyến '+b.r,'bus');
+}
+function exitCab(){
+  if(!cab) return; const s=cab.saved; cabStyle(false); cab=null; realHide();
+  document.body.classList.remove('incab'); const ui=$('#cab'); ui.classList.add('hidden'); ui.innerHTML='';
+  removeBuildings(); try{ map.setSky&&map.setSky({'sky-color':'#cfe8f3','horizon-color':'#eef2ea','fog-color':'#eef2ea','sky-horizon-blend':.5,'horizon-fog-blend':.5,'fog-ground-blend':.5,'atmosphere-blend':0}); }catch(e){}
+  map.setMaxZoom(18); map.jumpTo({center:s.center,zoom:Math.min(18,s.zoom),bearing:0,pitch:0}); map.setMaxPitch(60);
+  ['dragPan','scrollZoom','doubleClickZoom','keyboard','boxZoom'].forEach(k=>map[k]&&map[k].enable()); map.touchZoomRotate.enable(); map.touchZoomRotate.disableRotation();
+  lastTint=''; viewDirty=true; $('#rain').getContext('2d').clearRect(0,0,innerWidth,innerHeight); rainCtx._on=0;
+}
+function setSeat(seat,first){ if(!cab) return; cab.seat=seat; const ui=$('#cab'); ui.className='seat-'+seat; cab.hudT=9; cab.drops=[]; cab.streaks=[];
+  ui.querySelectorAll('[data-seat]').forEach(x=>x.classList.toggle('on',x.dataset.seat===seat)); if(!first) sfx('click');
+  cabResize(); if(cab.real){ cab.rq.at=null; realTick(true); } }
+function cabResize(){ const c=$('#cabfx'); if(!c) return; c.width=innerWidth*dpr; c.height=innerHeight*dpr; c.getContext('2d').setTransform(dpr,0,0,dpr,0,0); cab.glass=null; }
+function glassRect(){ if(cab.glass) return cab.glass; const el=$('#cab .glass'); const r=el?el.getBoundingClientRect():{left:0,top:0,right:innerWidth,bottom:innerHeight*.5};
+  return cab.glass={x0:r.left,y0:r.top,x1:r.right,y1:r.bottom}; }
+
+/* ---------- Kiểu phố khi ngồi trong xe (đường nhựa, vỉa hè) ---------- */
+const CAB_PAINT=[['bg','background-color','#cfc9bd'],['minor','line-color','#7d8389'],['sec-case','line-color','#bdb6aa'],['sec','line-color','#6f757b'],['maj-case','line-color','#c4bcae'],['maj','line-color','#61676d'],
+  ['open-case','line-opacity',0],['open','line-opacity',.55],['net','line-opacity',0],['green','fill-color','#a9cf98'],['roadname','text-color','#ffffff'],['roadname','text-halo-color','#3f454b']];
+const wideW=(a,b)=>['interpolate',['exponential',2],['zoom'],10,a,16,b,21,b*32];
+const CAB_W=[['minor',wideW(1,4)],['sec-case',wideW(1.4,9)],['sec',wideW(.8,7.5)],['maj-case',wideW(1.6,12)],['maj',wideW(.9,10.5)]];
+function cabStyle(on){ try{
+  if(on){ cab.orig=[]; for(const [l,k,v] of CAB_PAINT.concat(CAB_W.map(([l,v])=>[l,'line-width',v]))){ if(!map.getLayer(l)) continue; cab.orig.push([l,k,map.getPaintProperty(l,k)]); map.setPaintProperty(l,k,v); }
+    if(!map.getLayer('cab-mark')) map.addLayer({id:'cab-mark',type:'line',source:'omt','source-layer':'transportation',minzoom:16,filter:['in',['get','class'],['literal',['primary','secondary','tertiary','trunk']]],
+      paint:{'line-color':'#f8fafc','line-width':['interpolate',['exponential',2],['zoom'],16,.6,21,6],'line-dasharray':[3,4],'line-opacity':.85}},'mask'); }
+  else { for(const [l,k,v] of (cab.orig||[]).reverse()) if(map.getLayer(l)) map.setPaintProperty(l,k,v===undefined?null:v); if(map.getLayer('cab-mark')) map.removeLayer('cab-mark'); }
+  }catch(e){ console.warn('cabStyle',e); } }
+
+/* ---------- Lớp nhà 3D & bầu trời ---------- */
+function addBuildings(){ if(map.getLayer('bld3d')) return; try{
+  map.addLayer({id:'bld3d',type:'fill-extrusion',source:'omt','source-layer':'building',minzoom:14,
+    paint:{'fill-extrusion-color':['interpolate',['linear'],['coalesce',['get','render_height'],10],4,'#eadfcb',20,'#e4cfb0',60,'#cdd7de'],
+      'fill-extrusion-height':['coalesce',['get','render_height'],9],'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':.92}},'mask');
+  }catch(e){ console.warn('bld',e); } }
+function removeBuildings(){ try{ if(map.getLayer('bld3d')) map.removeLayer('bld3d'); }catch(e){} }
+function dayPhase(h){ return h<5.3||h>=19.2?'night':h<6.6?'dawn':h>=17.2?'dusk':'day'; }
+const SKY={day:['#7cc4ec','#d9eef7','#eef2ea'],dawn:['#7aa3d6','#ffd9b0','#f3e2d0'],dusk:['#5a6fb5','#ffb27a','#f1c9a3'],night:['#0b1430','#2a3560','#1b2236']};
+const BLD={day:'#eadfcb',dawn:'#e6cdb4',dusk:'#e5b991',night:'#5d6282'};
+function cabSky(force){ const ph=dayPhase(hour())+(raining()?'-r':''); if(!force&&ph===cab.phase) return; cab.phase=ph;
+  const k=ph.split('-')[0], c=SKY[k], wet=raining();
+  try{ map.setSky({'sky-color':wet?(k==='night'?'#0d1426':'#7d8a99'):c[0],'horizon-color':wet?(k==='night'?'#232b45':'#aab4bf'):c[1],'fog-color':wet?(k==='night'?'#1a2032':'#b5bec8'):c[2],
+    'sky-horizon-blend':.6,'horizon-fog-blend':.7,'fog-ground-blend':.35,'atmosphere-blend':0}); }catch(e){}
+  if(map.getLayer('bld3d')) try{ map.setPaintProperty('bld3d','fill-extrusion-color',BLD[k]); }catch(e){}
+  const t=$('#cabtint'); if(t) t.dataset.ph=k; }
+
+/* ---------- Mỗi khung hình ---------- */
+function cabFrame(dt){
+  const b=cabBus(); if(!b){ exitCab(); return; }
+  if(b.st==='maint'||b.st==='repair'){ toast('Xe vào xưởng, bạn đã xuống xe','wrench'); exitCab(); return; }
+  if(!b.r||!routeById[b.r]){ toast('Xe đã về bãi','depot'); exitCab(); return; }
+  const P=busPose(b); if(!P) return;
+  // vị trí & hướng mượt
+  if(!cab.pos){ cab.pos=P.ll.slice(); cab.brg=P.brg; }
+  const jump=dist(cab.pos,P.ll)>250; const kp=jump?1:1-Math.exp(-dt*9);
+  cab.pos[0]+=(P.ll[0]-cab.pos[0])*kp; cab.pos[1]+=(P.ll[1]-cab.pos[1])*kp;
+  const prevB=cab.brg, d=angDiff(cab.brg,P.brg); cab.brg=(cab.brg+d*(jump?1:1-Math.exp(-dt*2.6))+360)%360;
+  const rate=dt>0?angDiff(prevB,cab.brg)/dt:0; cab.turn+=(rate-cab.turn)*Math.min(1,dt*4);
+  cab.wheel+=(clamp(cab.turn*9,-140,140)-cab.wheel)*Math.min(1,dt*5);
+  // tốc độ (km/h theo thời gian trong game)
+  const gdt=S.t-cab.lastT; if(gdt>0.02){ let v=0; if(b.dir===cab.lastDir&&b.s>=cab.lastS) v=(b.s-cab.lastS)/gdt*.06; cab.lastS=b.s; cab.lastT=S.t; cab.lastDir=b.dir; cab.vT=b.st==='ok'?v:0; }
+  cab.spd+=((cab.vT||0)+(cab.vT>2?Math.sin(performance.now()/900)*1.2:0)-cab.spd)*Math.min(1,dt*2.5);
+  // camera
+  const cc=cabCamCfg(), H=innerHeight, mpp=40075016*Math.cos(rad(cab.pos[0]))/(512*Math.pow(2,cc.zoom)), camD=CAB_FOCAL*H*mpp;
+  const vb=cab.seat==='driver'?cab.brg:(cab.brg+90)%360, back=camD*Math.sin(rad(cc.pitch));
+  const eye=cab.seat==='driver'?offLL(cab.pos,cab.brg,2):offLL(cab.pos,(cab.brg+90)%360,1);
+  const ctr=offLL(eye,vb,back); cab.eye=eye; cab.vb=vb; cab.alt=camD*Math.cos(rad(cc.pitch));
+  map.jumpTo({center:[ctr[1],ctr[0]],zoom:cc.zoom,pitch:cc.pitch,bearing:vb});
+  // trạm sắp tới
+  const dr=P.dr, last=b.k>=dr.si.length; const ns=last?null:dr.si[b.k]; cab.next=ns;
+  if(ns!=null&&b.st==='ok'){ const rem=dr.sd[b.k]-b.s, key=b.r+':'+b.dir+':'+b.k+':'+(b.trips||0);
+    if(rem<140&&rem>=0&&cab.chime!==key){ cab.chime=key; sfx('chime'); toast('Sắp tới trạm: '+D.stops[ns][0],'stop'); } }
+  cab.hudT+=dt; if(cab.hudT>.3){ cab.hudT=0; cabHud(b,P); }
+  const ui=$('#cab'); const w=ui.querySelector('#wheel'); if(w) w.setAttribute('transform',`rotate(${cab.wheel.toFixed(1)} 150 212)`);
+  const nd=ui.querySelector('#needle'); if(nd) nd.setAttribute('transform',`rotate(${(-135+clamp(cab.spd,0,120)*2.25).toFixed(1)} 150 100)`);
+  cabSky(false);
+  if(cab.real) realTick(false);
+}
+function cabArrive(b,si,on,off){ if(!cab||cab.id!==b.id) return;
+  const el=$('#cabboard'); if(!el) return; el.innerHTML=`<b>${esc(D.stops[si][0])}</b><span class="on">▲ ${on} lên</span><span class="off">▼ ${off} xuống</span>`;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); clearTimeout(cab.bT); cab.bT=setTimeout(()=>el.classList.remove('show'),4200);
+  if(on+off>0) sfx('click'); }
+function cabTemp(b){ const r=routeById[b.r], ac=r&&S.opened[r.ref]&&S.opened[r.ref].up&&S.opened[r.ref].up.ac; if(ac||b.m==='ev') return 24+(b.l>MODELS[b.m].cap*.8?1:0);
+  const h=hour(); return Math.round(27+5*Math.max(0,Math.sin((h-7)/12*Math.PI))-(raining()?3:0)+b.l/MODELS[b.m].cap*2); }
+function cabHud(b,P){ const ui=$('#cab'), M=MODELS[b.m], h=hour(), w=wxNow(), ns=cab.next;
+  const set=(sel,v,html)=>{ ui.querySelectorAll(sel).forEach(e=>{ if(e._v!==v){ e._v=v; html?e.innerHTML=v:e.textContent=v; } }); };
+  const nm=ns!=null?D.stops[ns][0]:(D.stops[P.dr.si[P.dr.si.length-1]][0]);
+  set('[data-k=ref]',P.r.ref); ui.querySelectorAll('[data-k=refbg]').forEach(e=>e.style.background=P.r.color);
+  set('[data-k=next]',nm); set('[data-k=pax]',`${b.l}/${M.cap}`); set('[data-k=clock]',hhmm(S.t)); set('[data-k=wx]',ICON(WX[w].ic,30),1); set('[data-k=wxn]',WX[w].n);
+  set('[data-k=spd]',String(Math.round(cab.spd)));
+  set('[data-k=spax]',String(b.l)); set('[data-k=temp]',cabTemp(b)+'°C');
+  const fu=ui.querySelector('#fuel'); if(fu){ const f=1-((b.km||0)%240)/240*.85; fu.setAttribute('transform',`rotate(${(-60+f*120).toFixed(0)} 236 114)`); }
+  const sb=ui.querySelector('[data-k=sbar]'); if(sb) sb.style.width=Math.round(b.l/M.cap*100)+'%';
+  const st=b.st==='broken'?'Xe hư · chờ cứu hộ':!activeDriver(b)?'Ngoài ca · xe đang nghỉ':b.dw>0?'Đang đón trả khách':'';
+  set('[data-k=state]',st); ui.querySelector('[data-k=state]')?.classList.toggle('hidden',!st);
+  set('[data-k=led]',`Tuyến ${P.r.ref} · Trạm kế tiếp: ${nm}`);
+  const sp=ui.querySelector('[data-cabspeed]'); if(sp) sp.classList.toggle('on',!cab.slow);
+  ui.classList.toggle('wet',raining()); ui.dataset.ph=dayPhase(h);
+}
+
+/* ---------- Vẽ thế giới (trên #fx) khi ngồi trong xe ---------- */
+function cabRender(g,dt){
+  const W=innerWidth,H=innerHeight, b=cabBus(); if(!b||!cab.eye) return; const night=dayPhase(hour())==='night'||(raining()&&dayPhase(hour())!=='day');
+  const F=CAB_FOCAL*H, eye=cab.eye, alt=cab.alt;
+  const items=[];
+  const look=(ll,hgt)=>{ const dh=dist(eye,ll); const a=Math.abs(angDiff(cab.vb,geoBrg(eye,ll))); if(dh>650||a>62||dh<3) return null; const p=map.project([ll[1],ll[0]]); const d=Math.hypot(dh,alt); return {x:p.x,y:p.y,s:F/d,d}; };
+  // xe khác
+  for(const o of S.buses){ if(o===b||!o.r||o.st==='maint'||o.st==='repair') continue; const P=busPose(o); if(!P) continue; const q=look(P.ll); if(q) items.push({k:'bus',q,o,P}); }
+  // trạm sắp tới của tuyến
+  const P=busPose(b), dr=P.dr;
+  for(let j=b.k;j<Math.min(dr.si.length,b.k+4);j++){ const sp=posAt(dr,dr.sd[j]), q2=posAt(dr,Math.min(dr.len,dr.sd[j]+10)), hb=geoBrg([sp.lat,sp.lng],[q2.lat,q2.lng]);
+    const ll=offLL([sp.lat,sp.lng],hb+90,7); const q=look(ll); if(q) items.push({k:'stop',q,si:dr.si[j],ref:P.r.ref,col:P.r.color}); }
+  // đèn đường dọc tuyến
+  for(let s=Math.floor(b.s/60)*60+60;s<b.s+520&&s<dr.len;s+=60){ const sp=posAt(dr,s), q2=posAt(dr,Math.min(dr.len,s+8)), hb=geoBrg([sp.lat,sp.lng],[q2.lat,q2.lng]);
+    for(const side of [-1,1]){ const q=look(offLL([sp.lat,sp.lng],hb+90*side,9)); if(q) items.push({k:'lamp',q}); } }
+  items.sort((a,c)=>c.q.d-a.q.d);
+  for(const it of items){ const {x,y,s}=it.q; if(s<.15) continue;
+    if(it.k==='lamp'){ const ph=7.5*s; g.strokeStyle=night?'#39404f':'rgba(100,116,139,.75)'; g.lineWidth=Math.max(1,.14*s); g.beginPath(); g.moveTo(x,y); g.lineTo(x,y-ph); g.stroke();
+      if(night){ const r=Math.max(6,2.6*s); const gr=g.createRadialGradient(x,y-ph,0,x,y-ph,r); gr.addColorStop(0,'rgba(255,226,150,.95)'); gr.addColorStop(.25,'rgba(255,200,110,.5)'); gr.addColorStop(1,'rgba(255,190,90,0)'); g.fillStyle=gr; g.fillRect(x-r,y-ph-r,2*r,2*r);
+        const gp=g.createRadialGradient(x,y,0,x,y,r*1.6); gp.addColorStop(0,'rgba(255,210,120,.28)'); gp.addColorStop(1,'rgba(255,210,120,0)'); g.fillStyle=gp; g.fillRect(x-r*1.6,y-r*.6,r*3.2,r*1.2); }
+      else { g.fillStyle='#cbd5e1'; g.fillRect(x-.5*s,y-ph-.15*s,1*s,.3*s); } continue; }
+    if(it.k==='stop'){ const ph=2.9*s, sw=.9*s, sh=1.1*s; g.fillStyle='#64748b'; g.fillRect(x-.05*s,y-ph,Math.max(1.5,.1*s),ph);
+      g.fillStyle='#fff'; g.beginPath(); g.roundRect(x-sw/2-.06*s,y-ph-sh-.06*s,sw+.12*s,sh+.12*s,.12*s); g.fill();
+      g.fillStyle='#1d4ed8'; g.beginPath(); g.roundRect(x-sw/2,y-ph-sh,sw,sh,.1*s); g.fill();
+      if(s>14){ g.fillStyle='#fff'; g.textAlign='center'; g.textBaseline='middle'; g.font=`900 ${(.3*s).toFixed(0)}px system-ui,sans-serif`; g.fillText(it.ref,x,y-ph-sh*.76);
+        g.fillRect(x-.25*s,y-ph-sh*.5,.5*s,.24*s); g.fillStyle='#1d4ed8'; g.fillRect(x-.2*s,y-ph-sh*.47,.4*s,.08*s);
+        if(s>28){ g.fillStyle='#fff'; g.font=`700 ${(.11*s).toFixed(0)}px system-ui,sans-serif`; g.fillText(D.stops[it.si][0].slice(0,18),x,y-ph-sh*.14); } }
+      if(s>8){ const nm=D.stops[it.si][0]; g.font=`800 ${clamp(.32*s,10,15).toFixed(0)}px system-ui,sans-serif`; g.textAlign='center'; const tw=g.measureText(nm).width+12;
+        g.fillStyle='rgba(15,23,42,.72)'; g.beginPath(); g.roundRect(x-tw/2,y-ph-sh-22-.2*s,tw,18,9); g.fill(); g.fillStyle='#fff'; g.textBaseline='middle'; g.fillText(nm,x,y-ph-sh-13-.2*s); }
+      continue; }
+    if(it.k==='bus'){ const o=it.o, M=MODELS[o.m], same=Math.abs(angDiff(cab.vb,it.P.brg))<90, bw=2.5*s, bh=(o.m==='dd'?4.2:3.1)*s, col=o.color||M.color;
+      g.fillStyle='rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x,y,bw*.6,.25*s,0,0,6.283); g.fill();
+      g.fillStyle=col; g.beginPath(); g.roundRect(x-bw/2,y-bh,bw,bh*.95,.3*s); g.fill();
+      g.fillStyle='rgba(20,30,45,.85)'; g.beginPath(); g.roundRect(x-bw*.42,y-bh*.86,bw*.84,bh*.42,.15*s); g.fill();
+      g.fillStyle='#111'; g.fillRect(x-bw*.32,y-bh*.99,bw*.64,bh*.1); g.fillStyle='#fbbf24'; g.textAlign='center'; g.textBaseline='middle'; if(s>6){ g.font=`900 ${(.26*s).toFixed(0)}px system-ui`; g.fillText(o.r,x,y-bh*.94); }
+      const lc=same?(night?'#ff3b3b':'#ef4444'):(night?'#fff7d6':'#fde68a'); g.fillStyle=lc;
+      g.beginPath(); g.arc(x-bw*.38,y-bh*.2,.13*s,0,6.283); g.arc(x+bw*.38,y-bh*.2,.13*s,0,6.283); g.fill();
+      if(night){ for(const sx of [-1,1]){ const gr=g.createRadialGradient(x+sx*bw*.38,y-bh*.2,0,x+sx*bw*.38,y-bh*.2,.9*s); gr.addColorStop(0,same?'rgba(255,60,60,.6)':'rgba(255,245,200,.7)'); gr.addColorStop(1,'rgba(255,80,80,0)'); g.fillStyle=gr; g.fillRect(x+sx*bw*.38-.9*s,y-bh*.2-.9*s,1.8*s,1.8*s); } } }
+  }
+  g.textBaseline='alphabetic';
+  cabGlass(dt,night);
+}
+/* kính: mưa đọng, cần gạt, đèn pha */
+function cabGlass(dt,night){
+  const c=$('#cabfx'); if(!c) return; const g=c.getContext('2d'), W=innerWidth,H=innerHeight; g.clearRect(0,0,W,H);
+  const R=glassRect(), gw=R.x1-R.x0, gh=R.y1-R.y0, drv=cab.seat==='driver';
+  g.save(); g.beginPath(); g.rect(R.x0,R.y0,gw,gh); g.clip();
+  if(drv&&night){ const cx=R.x0+gw*.5, cy=R.y1; const gr=g.createRadialGradient(cx,cy,10,cx,cy,gh*.9); gr.addColorStop(0,'rgba(255,236,170,.32)'); gr.addColorStop(.6,'rgba(255,230,160,.10)'); gr.addColorStop(1,'rgba(255,230,160,0)');
+    g.fillStyle=gr; g.beginPath(); g.moveTo(cx-gw*.12,cy); g.lineTo(R.x0-gw*.2,R.y0+gh*.45); g.lineTo(R.x1+gw*.2,R.y0+gh*.45); g.lineTo(cx+gw*.12,cy); g.fill(); }
+  if(raining()){ const storm=wxNow()==='storm', D_=cab.drops, n=storm?160:95;
+    for(let i=0;i<(storm?5:3);i++) if(D_.length<n&&Math.random()<.6) D_.push({x:R.x0+Math.random()*gw,y:R.y0+Math.random()*gh,r:1+Math.random()*(drv?2.6:3.4),v:0});
+    // vệt nước chảy (ghế khách) / gió tạt (ghế tài xế)
+    for(const d of D_){ if(d.r>3.2||Math.random()<.002){ d.v+=dt*(drv?18:40); } d.y+=d.v*dt; if(!drv) d.x-=dt*d.v*.15; }
+    for(let i=D_.length-1;i>=0;i--) if(D_[i].y>R.y1+6) D_.splice(i,1);
+    // cần gạt
+    if(drv){ cab.wipePrev=cab.wipe; cab.wt=(cab.wt||0)+dt*(storm?1.5:1); const ph=1-Math.abs((cab.wt*.9)%2-1); cab.wipe=18+ph*144;
+      const piv=[[R.x0+gw*.22,R.y1-8],[R.x0+gw*.66,R.y1-8]], L=gw*.52, a0=Math.min(cab.wipe,cab.wipePrev)-4, a1=Math.max(cab.wipe,cab.wipePrev)+4;
+      for(let i=D_.length-1;i>=0;i--){ const d=D_[i]; for(const p of piv){ const dx=d.x-p[0],dy=p[1]-d.y, ang=Math.atan2(dy,-dx)*180/Math.PI; if(Math.hypot(dx,dy)<L&&ang>=180-a1&&ang<=180-a0){ D_.splice(i,1); break; } } }
+      // vẽ giọt
+      cabDrawDrops(g,D_,night);
+      g.strokeStyle='#15191c'; g.lineCap='round';
+      for(const p of piv){ const a=rad(180-cab.wipe), ex=p[0]+Math.cos(a)*L*-1, ey=p[1]-Math.sin(a)*L; g.lineWidth=5; g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(ex,ey); g.stroke(); g.lineWidth=2; g.strokeStyle='#2b3237'; g.beginPath(); g.moveTo(p[0]+(ex-p[0])*.35,p[1]+(ey-p[1])*.35); g.lineTo(ex,ey); g.stroke(); g.strokeStyle='#15191c'; }
+    } else cabDrawDrops(g,D_,night);
+    // mưa rơi bên ngoài
+    g.strokeStyle=night?'rgba(170,190,230,.35)':'rgba(220,230,245,.45)'; g.lineWidth=1; g.beginPath(); const t=performance.now()/1000;
+    for(let i=0;i<(storm?70:40);i++){ const dx=(i*97.13%1), dy=((i*0.6180339+t*(1.2+(i%5)*.15))%1); const x=R.x0+dx*gw, y=R.y0+dy*gh; g.moveTo(x,y); g.lineTo(x-2,y+11); } g.stroke();
+    if(storm&&Math.random()<.003){ g.fillStyle='rgba(255,255,255,.4)'; g.fillRect(R.x0,R.y0,gw,gh); }
+  } else if(cab.drops.length) cab.drops.length=0;
+  g.restore();
+}
+function cabDrawDrops(g,D_,night){ for(const d of D_){ g.beginPath(); g.ellipse(d.x,d.y,d.r,d.r*(d.v>0?1.6:1.1),0,0,6.283);
+  g.fillStyle=night?'rgba(150,170,210,.22)':'rgba(230,240,255,.28)'; g.fill(); g.lineWidth=.8; g.strokeStyle=night?'rgba(255,220,160,.35)':'rgba(255,255,255,.55)'; g.stroke();
+  if(d.v>0){ g.strokeStyle=night?'rgba(150,170,210,.18)':'rgba(230,240,255,.22)'; g.lineWidth=d.r*.8; g.beginPath(); g.moveTo(d.x,d.y-d.r*5); g.lineTo(d.x,d.y); g.stroke(); } } }
+
+/* ---------- Ảnh thật (Mapillary) ---------- */
+const MLY_FIELDS='id,thumb_1024_url,computed_compass_angle,compass_angle,geometry,is_pano,creator';
+async function mlyFetch(b4,depth){ const tk=XCFG.mapillaryToken;
+  const url=`https://graph.mapillary.com/images?access_token=${encodeURIComponent(tk)}&fields=${MLY_FIELDS}&bbox=${b4.map(v=>v.toFixed(5)).join(',')}&limit=60`;
+  const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),15000);
+  try{ const j=await (await fetch(url,{signal:ctl.signal})).json(); clearTimeout(to);
+    if(j.data) return j.data.filter(x=>!x.is_pano&&x.thumb_1024_url&&x.geometry);
+    if(j.error&&depth<2){ const [w,s,e,n]=b4, mx=(w+e)/2, my=(s+n)/2; const parts=await Promise.all([[w,s,mx,my],[mx,s,e,my],[w,my,mx,n],[mx,my,e,n]].map(q=>mlyFetch(q,depth+1))); return parts.flat(); }
+    return []; }catch(e){ clearTimeout(to); return null; } }
+function mlyCell(ll){ const k=Math.floor(ll[0]/.0012)+':'+Math.floor(ll[1]/.0012); const rq=cab.rq;
+  if(rq.cache[k]) return rq.cache[k]; const la=Math.floor(ll[0]/.0012)*.0012, ln=Math.floor(ll[1]/.0012)*.0012;
+  return rq.cache[k]=mlyFetch([ln,la,ln+.0012,la+.0012],0).then(r=>{ if(r===null) delete rq.cache[k]; return r||[]; }); }
+async function realTick(force){
+  const rq=cab.rq; if(rq.busy||!cab.eye) return; const now=performance.now(); if(!force&&now-(rq.t||0)<1200) return; rq.t=now;
+  const vb=cab.vb, tgt=cab.seat==='driver'?offLL(cab.eye,vb,12):offLL(cab.eye,vb,4);
+  if(!force&&rq.at&&dist(rq.at,tgt)<14&&Math.abs(angDiff(rq.brg,vb))<20) return;
+  rq.busy=true; rq.at=tgt; rq.brg=vb; const myCab=cab;
+  try{ const cells=new Set([0,1,2,3].map(i=>{ const o=offLL(tgt,i*90+45,45); return Math.floor(o[0]/.0012)+':'+Math.floor(o[1]/.0012)+'|'+o[0]+'|'+o[1]; }));
+    const lists=await Promise.all([...cells].map(c=>{ const [, a, b2]=c.split('|'); return mlyCell([+a,+b2]); }));
+    if(cab!==myCab||!cab.real) return;
+    let best=null,bs=1e9; for(const im of lists.flat()){ const p=[im.geometry.coordinates[1],im.geometry.coordinates[0]], dd=dist(p,tgt); const ca=im.computed_compass_angle??im.compass_angle; if(ca==null) continue;
+      const ad=Math.abs(angDiff(ca,vb)); if(dd>70||ad>55) continue; const sc=dd+ad*.9; if(sc<bs){ bs=sc; best=im; } }
+    if(!best){ realNone(true); return; }
+    realNone(false); if(rq.cur===best.id) return; rq.cur=best.id;
+    await new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>{ if(cab===myCab&&cab.real) realShow(im.src,best); res(); }; im.onerror=res; im.src=best.thumb_1024_url; });
+  } finally { rq.busy=false; } }
+function realShow(src,meta){ const box=$('#cabreal'); if(!box) return; const imgs=box.querySelectorAll('img'); const cur=box.querySelector('img.on')||imgs[0], nx=cur===imgs[0]?imgs[1]:imgs[0];
+  nx.src=src; nx.classList.add('on'); cur.classList.remove('on'); box.classList.add('show');
+  const cr=$('#cabreal .mcred'); if(cr) cr.innerHTML=`Ảnh: © ${esc(meta.creator&&meta.creator.username||'Mapillary')} · <a href="https://www.mapillary.com/app/?pKey=${esc(meta.id)}" target="_blank" rel="noopener">Mapillary</a> · CC BY-SA`; }
+function realNone(v){ if(!cab) return; cab.rq.none=v; const box=$('#cabreal'); if(!box) return; box.classList.toggle('show',!v); const n=$('#cab .mnone'); if(n) n.classList.toggle('hidden',!v); }
+function realHide(){ const box=$('#cabreal'); if(box){ box.classList.remove('show'); box.querySelectorAll('img').forEach(i=>{ i.classList.remove('on'); i.removeAttribute('src'); }); } }
+function toggleReal(){ if(!cab) return;
+  if(!XCFG.mapillaryToken) return toast('Chưa cấu hình mã Mapillary nên chưa xem được ảnh thật','warn');
+  cab.real=!cab.real; $('#cab [data-cabreal]').classList.toggle('on',cab.real);
+  if(cab.real){ cab.rq.cur=null; cab.rq.at=null; toast('Ảnh thật từ Mapillary: ảnh chụp đường phố gần xe nhất, đổi theo xe chạy','info'); realTick(true); }
+  else { realHide(); realNone(false); $('#cab .mnone').classList.add('hidden'); } }
+
+/* ---------- Giao diện cabin (SVG/CSS tự vẽ) ---------- */
+const CI={
+ seat:`<svg viewBox="0 0 48 48" width="44" height="44"><path d="M15 6h9a3 3 0 0 1 3 3v16h9a4 4 0 0 1 4 4v9H16a4 4 0 0 1-4-4V9a3 3 0 0 1 3-3z" fill="currentColor"/><rect x="10" y="40" width="30" height="4" rx="2" fill="currentColor"/><circle cx="34" cy="12" r="5" fill="currentColor" opacity=".9"/></svg>`,
+ pass:`<svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="8" r="5" fill="currentColor"/><path d="M18 16h10l2 14h8v4H27l-2-10h-4v8h-6z" fill="currentColor"/><path d="M12 22v16h22" stroke="currentColor" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M16 38v6M32 38v6" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg>`,
+ wheel:`<svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="24" cy="26" r="5" fill="currentColor"/><path d="M7 22c6-3 28-3 34 0M24 31v11" stroke="currentColor" stroke-width="5" fill="none" stroke-linecap="round"/></svg>`,
+ exit:`<svg viewBox="0 0 48 48" width="44" height="44"><path d="M20 6H9v36h11" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round"/><path d="M18 24h22M32 15l9 9-9 9" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ clock:`<svg viewBox="0 0 24 24" width="30" height="30"><circle cx="12" cy="12" r="9.5" fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-width="2.2"/><path d="M12 6.5V12l3.6 2.2" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>`,
+ cam:`<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 7h3l1.6-2h6.8L17 7h3a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 19H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 7z" fill="currentColor"/><circle cx="12" cy="12.8" r="3.6" fill="#0f172a" stroke="#fff" stroke-width="1.4"/></svg>`,
+ fast:`<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6l8 6-8 6zM12 6l8 6-8 6z" fill="currentColor"/></svg>`,
+ pin:`<svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 22s-7-7.2-7-12a7 7 0 0 1 14 0c0 4.8-7 12-7 12z" fill="#ea580c"/><circle cx="12" cy="10" r="2.8" fill="#fff"/></svg>`,
+};
+function dashSVG(){
+  const cx=150,cy=100,r=52, fx=236,fy=114; let ticks='',nums='';
+  for(let v=0;v<=120;v+=5){ const a=rad(-135+v*2.25), big=v%20===0, r1=big?r-10:r-5; ticks+=`<line x1="${(cx+Math.sin(a)*r1).toFixed(1)}" y1="${(cy-Math.cos(a)*r1).toFixed(1)}" x2="${(cx+Math.sin(a)*(r-2)).toFixed(1)}" y2="${(cy-Math.cos(a)*(r-2)).toFixed(1)}" stroke="${v>=100?'#f97316':'#e5e7eb'}" stroke-width="${big?2.2:1.1}"/>`;
+    if(v%20===0) nums+=`<text x="${(cx+Math.sin(a)*(r-19)).toFixed(1)}" y="${(cy-Math.cos(a)*(r-19)+3.5).toFixed(1)}">${v}</text>`; }
+  let fticks=''; for(let i=0;i<=4;i++){ const a=rad(-60+i*30); fticks+=`<line x1="${(fx+Math.sin(a)*17).toFixed(1)}" y1="${(fy-Math.cos(a)*17).toFixed(1)}" x2="${(fx+Math.sin(a)*23).toFixed(1)}" y2="${(fy-Math.cos(a)*23).toFixed(1)}" stroke="${i===0?'#ef4444':'#e5e7eb'}" stroke-width="2"/>`; }
+  const wx=150,wy=212,wr=170;
+  return `<svg class="dash" viewBox="0 0 390 440" preserveAspectRatio="xMidYMin slice">
+  <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4448"/><stop offset=".25" stop-color="#262d31"/><stop offset="1" stop-color="#14181b"/></linearGradient>
+   <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#444d52"/><stop offset=".5" stop-color="#262c30"/><stop offset="1" stop-color="#15191c"/></linearGradient>
+   <radialGradient id="gf" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#1c2328"/><stop offset="1" stop-color="#07090b"/></radialGradient>
+   <radialGradient id="hub" cx=".45" cy=".35" r=".7"><stop offset="0" stop-color="#2f383d"/><stop offset="1" stop-color="#161b1e"/></radialGradient></defs>
+  <path d="M0 26 Q195 0 390 26 V440 H0z" fill="url(#dg)"/><path d="M0 26 Q195 0 390 26" stroke="#59646a" stroke-width="2" fill="none"/>
+  <path d="M0 32 Q195 8 390 32" stroke="#0b0e10" stroke-width="5" fill="none" opacity=".6"/>
+  <g opacity=".85">${[0,1,2,3,4,5].map(i=>`<rect x="6" y="${70+i*11}" width="34" height="6" rx="3" fill="#0e1214"/>`).join('')}</g>
+  <rect x="72" y="36" width="210" height="128" rx="36" fill="#0d1114" stroke="#2f383d" stroke-width="2"/>
+  <circle cx="${cx}" cy="${cy}" r="${r+5}" fill="#2a3237"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#gf)" stroke="#8b969c" stroke-width="2"/>
+  ${ticks}<g font-size="10" font-weight="700" fill="#e5e7eb" text-anchor="middle" font-family="system-ui,sans-serif">${nums}</g>
+  <text x="${cx}" y="${cy-18}" font-size="8" fill="#9ca3af" text-anchor="middle" font-family="system-ui">km/h</text>
+  <rect x="${cx-21}" y="${cy+15}" width="42" height="22" rx="5" fill="#120c05" stroke="#3b2a14"/><text data-k="spd" x="${cx}" y="${cy+32}" font-size="17" font-weight="900" fill="#fb923c" text-anchor="middle" font-family="ui-monospace,Consolas,monospace">0</text>
+  <g id="needle"><path d="M${cx-2.6} ${cy} L${cx} ${cy-r+8} L${cx+2.6} ${cy}z" fill="#f97316"/></g><circle cx="${cx}" cy="${cy}" r="5" fill="#30383d" stroke="#9ca3af"/>
+  <circle cx="${fx}" cy="${fy}" r="30" fill="#2a3237"/><circle cx="${fx}" cy="${fy}" r="25" fill="url(#gf)" stroke="#8b969c" stroke-width="1.6"/>${fticks}
+  <text x="${fx-16}" y="${fy+15}" font-size="8" fill="#ef4444" font-weight="800" font-family="system-ui">E</text><text x="${fx+10}" y="${fy+15}" font-size="8" fill="#e5e7eb" font-weight="800" font-family="system-ui">F</text>
+  <path d="M${fx-4} ${fy+12}h7v-8h-7zM${fx+3} ${fy+5}l3 2v5" fill="none" stroke="#e5e7eb" stroke-width="1.2"/>
+  <g id="fuel"><path d="M${fx-1.4} ${fy} L${fx} ${fy-20} L${fx+1.4} ${fy}z" fill="#f97316"/></g><circle cx="${fx}" cy="${fy}" r="3" fill="#30383d"/>
+  <rect x="206" y="150" width="12" height="8" rx="2" fill="#ea580c"/><rect x="222" y="150" width="12" height="8" rx="2" fill="#4b5563"/>
+  <rect x="306" y="40" width="78" height="112" rx="10" fill="#060a08" stroke="#2f3d36" stroke-width="2"/><rect x="311" y="45" width="68" height="102" rx="6" fill="#0b2318" stroke="#22c55e" stroke-opacity=".35"/>
+  <g font-family="system-ui,sans-serif" text-anchor="middle"><text x="345" y="61" font-size="8" font-weight="800" fill="#86efac">HÀNH KHÁCH</text><text data-k="spax" x="345" y="82" font-size="20" font-weight="900" fill="#ecfdf5">0</text>
+  <text x="345" y="99" font-size="8" font-weight="800" fill="#86efac">NHIỆT ĐỘ</text><text data-k="temp" x="345" y="120" font-size="17" font-weight="900" fill="#ecfdf5">28°C</text></g>
+  <rect x="318" y="129" width="44" height="6" rx="3" fill="#14532d"/><foreignObject x="318" y="129" width="44" height="6"><div xmlns="http://www.w3.org/1999/xhtml" class="sbarw"><i data-k="sbar"></i></div></foreignObject>
+  <circle cx="370" cy="132" r="5" fill="none" stroke="#22c55e" stroke-width="1.5"/><path d="M367.7 132l1.6 1.6 3-3" stroke="#22c55e" stroke-width="1.5" fill="none"/>
+  <g transform="translate(334 166)"><rect width="46" height="32" rx="7" fill="#22863a" stroke="#4ade80" stroke-width="1.5"/><path d="M13 8h20a2 2 0 0 1 2 2v10H11V10a2 2 0 0 1 2-2zM11 20h24v3H11z" fill="#fff"/><circle cx="16" cy="24" r="2" fill="#fff"/><circle cx="30" cy="24" r="2" fill="#fff"/>
+   <rect y="40" width="46" height="32" rx="7" fill="#20272b" stroke="#3a454b"/><path d="M17 48h9v16h-9zM26 52l4 3v7" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+   <rect y="80" width="46" height="32" rx="7" fill="#20272b" stroke="#3a454b"/><path d="M16 96a7 7 0 0 1 12-5M30 96a7 7 0 0 1-12 5" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+   <rect y="120" width="46" height="32" rx="7" fill="#20272b" stroke="#3a454b"/><path d="M23 127l9 16H14z" fill="none" stroke="#ef4444" stroke-width="2.4" stroke-linejoin="round"/></g>
+  <g id="wheel">
+   <circle cx="${wx}" cy="${wy}" r="${wr}" fill="none" stroke="#0b0e10" stroke-width="34" opacity=".45"/>
+   <circle cx="${wx}" cy="${wy}" r="${wr}" fill="none" stroke="url(#wg)" stroke-width="27"/><path d="M${wx-150} ${wy-80} A${wr} ${wr} 0 0 1 ${wx+150} ${wy-80}" fill="none" stroke="#5d6a72" stroke-width="2.5" opacity=".75"/>
+   <path d="M${wx-160} ${wy+8} Q${wx-90} ${wy-14} ${wx-48} ${wy-6} L${wx-42} ${wy+34} Q${wx-90} ${wy+44} ${wx-158} ${wy+52}z" fill="#20272b"/>
+   <path d="M${wx+160} ${wy+8} Q${wx+90} ${wy-14} ${wx+48} ${wy-6} L${wx+42} ${wy+34} Q${wx+90} ${wy+44} ${wx+158} ${wy+52}z" fill="#20272b"/>
+   <path d="M${wx-26} ${wy+40} h52 l10 130 h-72z" fill="#1d2326"/>
+   <circle cx="${wx}" cy="${wy+8}" r="56" fill="url(#hub)" stroke="#384349" stroke-width="3"/><circle cx="${wx}" cy="${wy+8}" r="34" fill="#14532d" stroke="#0d3b20" stroke-width="3"/>
+   <path d="M${wx-4} ${wy+16}c-9-4-12-13-9-23 9 2 12 11 9 23zM${wx+3} ${wy+16}c2-12 9-19 19-19-1 10-9 17-19 19z" fill="#86efac"/><text x="${wx}" y="${wy+31}" font-size="8.5" font-weight="900" fill="#dcfce7" text-anchor="middle" font-family="system-ui">SG BUS</text>
+  </g></svg>`;
+}
+function frameSVG(){ return `<svg class="frame" viewBox="0 0 390 520" preserveAspectRatio="none">
+  <path d="M0 0 H390 V84 H0z" fill="#1b2326"/><path d="M0 84 H390" stroke="#2f3a3e" stroke-width="3"/>
+  <path d="M0 84 L34 84 L44 520 L0 520z" fill="#1e272a"/><path d="M390 84 L360 84 L352 520 L390 520z" fill="#1e272a"/>
+  <path d="M34 84 L44 520" stroke="#34424a" stroke-width="2"/><path d="M360 84 L352 520" stroke="#34424a" stroke-width="2"/></svg>`; }
+function mirrorSVG(){ return `<svg class="mirror" viewBox="0 0 90 130"><path d="M40 20 L62 20" stroke="#222a2e" stroke-width="7"/>
+  <rect x="2" y="2" width="44" height="98" rx="12" fill="#1b2225" stroke="#363f44" stroke-width="3"/><rect x="7" y="7" width="34" height="88" rx="9" fill="url(#mg)"/>
+  <defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9cc7e4" class="m1"/><stop offset=".55" stop-color="#c8d6de" class="m2"/><stop offset="1" stop-color="#5f6b72" class="m3"/></linearGradient></defs>
+  <path d="M10 70 L38 60 L38 64 L10 76z" fill="#8a8f94" opacity=".7"/><path d="M12 14 L22 14 L12 40z" fill="#fff" opacity=".35"/></svg>`; }
+function seatsSVG(){ return `<svg class="seats" viewBox="0 0 390 300" preserveAspectRatio="xMidYMax slice">
+  <defs><linearGradient id="fab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c4166"/><stop offset="1" stop-color="#18253f"/></linearGradient>
+  <pattern id="fp" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0 10L10 0" stroke="#3a5280" stroke-width="1" opacity=".5"/></pattern></defs>
+  <rect x="0" y="40" width="390" height="260" fill="#173634"/><path d="M0 52 H390" stroke="#1f4a47" stroke-width="5"/>
+  <g><path d="M-30 70 q0-26 26-26 h70 q26 0 26 26 v170 h-122z" fill="#d97706"/><path d="M-22 78 q0-22 22-22 h58 q22 0 22 22 v160 h-102z" fill="url(#fab)"/><path d="M-22 78 q0-22 22-22 h58 q22 0 22 22 v160 h-102z" fill="url(#fp)"/></g>
+  <g><path d="M110 56 q0-26 26-26 h70 q26 0 26 26 v150 h-122z" fill="#c2620d"/><path d="M118 64 q0-22 22-22 h58 q22 0 22 22 v140 h-102z" fill="url(#fab)"/><path d="M118 64 q0-22 22-22 h58 q22 0 22 22 v140 h-102z" fill="url(#fp)"/>
+   <path d="M100 200 h150 q14 0 14 14 v26 h-178 v-26 q0-14 14-14z" fill="#1d2d4d"/></g>
+  <g><path d="M330 80 q0-20 20-20 h60 v200 h-80z" fill="#c2620d"/><path d="M338 86 q0-16 16-16 h56 v190 h-72z" fill="url(#fab)"/></g>
+  <path d="M300 40 L390 -10" stroke="#3a8f6a" stroke-width="10" stroke-linecap="round"/><path d="M300 40 L300 180" stroke="#3a8f6a" stroke-width="10" stroke-linecap="round"/></svg>`; }
+function cabHTML(){
+  return `<div id="cabreal"><img alt=""><img alt=""><div class="mcred"></div></div>
+  <div id="cabtint"></div><canvas id="cabfx"></canvas>
+  <div class="drv-only">${frameSVG()}${mirrorSVG()}<div class="charm"><i></i><b></b></div>${dashSVG()}</div>
+  <div class="pas-only"><div class="win"></div><div class="ceil"><i></i></div><div class="pole"></div><div class="rail"></div>${seatsSVG()}<div class="brand">${ICON('shelter',26)}<span><b>XE BUÝT SÀI GÒN</b><small>AN TOÀN · THÔNG MINH · THÂN THIỆN</small></span></div></div>
+  <div class="glass"></div>
+  <div class="ctop d-only"><div class="cref" data-k="refbg"><span data-k="ref">--</span></div><div class="ccard grow">${CI.pin}<span><small>Trạm kế tiếp:</small><b data-k="next">…</b></span></div>
+    <div class="ccard c2">${ICON('people',28)}<span><b data-k="pax">0/0</b><small>Hành khách</small></span></div><div class="ccard c3">${CI.clock}<span><b data-k="clock">--:--</b><small>Thời tiết</small></span><i data-k="wx"></i></div></div>
+  <div class="ptop p-only"><div class="led-ic">≡</div><div class="led"><span data-k="led"></span></div><div class="sig"><svg viewBox="0 0 60 16" width="60" height="16"><path d="M2 6a10 10 0 0 1 14 0M5 9a6 6 0 0 1 8 0" stroke="#fff" stroke-width="1.8" fill="none"/><circle cx="9" cy="12" r="1.6" fill="#fff"/><rect x="22" y="3" width="18" height="10" rx="2" fill="none" stroke="#fff" stroke-width="1.4"/><rect x="24" y="5" width="12" height="6" fill="#22c55e"/><path d="M46 13v-3M50 13v-6M54 13v-9M58 13v-11" stroke="#fff" stroke-width="2"/></svg></div></div>
+  <div class="pcards p-only"><div class="pc l">${ICON('people',30)}<span><b data-k="pax">0/0</b><small>Hành khách <i class="gdot"></i></small></span></div>
+    <div class="pc r">${CI.clock}<span><b data-k="clock">--:--</b><small>Thời gian</small></span></div><div class="pc r2"><i data-k="wx"></i><span><b data-k="wxn">Nắng</b></span></div></div>
+  <div class="ctools"><button data-cabreal>${CI.cam}<span>Ảnh thật</span></button><button data-cabspeed>${CI.fast}<span>Tua nhanh</span></button></div>
+  <div class="mnone hidden">Đoạn này chưa có ảnh thật trên Mapillary · đang hiện 3D</div>
+  <div class="cstate hidden" data-k="state"></div>
+  <div id="cabboard"></div>
+  <div class="cbtns"><button data-seat="driver">${cab&&cab.seat==='passenger'?CI.wheel:CI.seat}<span>Ghế tài xế</span></button><button data-seat="passenger">${CI.pass}<span>Ghế khách</span></button><button data-cabexit>${CI.exit}<span>Thoát</span></button></div>
+  <div class="cattr">© OpenFreeMap © OpenMapTiles © OpenStreetMap</div>`;
+}
+function bindCab(){ const ui=$('#cab');
+  ui.addEventListener('click',e=>{ const t=e.target.closest('[data-seat],[data-cabexit],[data-cabreal],[data-cabspeed]'); if(!t) return; e.stopPropagation(); const ds=t.dataset;
+    if(ds.seat){ setSeat(ds.seat); const btn=ui.querySelector('[data-seat=driver]'); btn.innerHTML=(ds.seat==='passenger'?CI.wheel:CI.seat)+'<span>Ghế tài xế</span>'; }
+    else if(ds.cabexit!==undefined){ sfx('click'); exitCab(); }
+    else if(ds.cabreal!==undefined){ sfx('click'); toggleReal(); }
+    else if(ds.cabspeed!==undefined){ sfx('click'); cab.slow=!cab.slow; toast(cab.slow?'Thời gian chạy chậm cho giống thật':'Tua nhanh: thời gian chạy như ngoài bản đồ','fast'); cabHud(cabBus(),busPose(cabBus())); } });
+  addEventListener('resize',()=>{ if(cab) cabResize(); });
+}
 /* ---------- Events ---------- */
 function bindUI(){
   document.querySelectorAll('[data-ic]').forEach(el=>el.insertAdjacentHTML('afterbegin',ICON(el.dataset.ic,+el.dataset.s||24)));
@@ -951,7 +1302,7 @@ function bindUI(){
   $('#zin').onclick=()=>map.zoomIn(); $('#zout').onclick=()=>map.zoomOut(); $('#zhome').onclick=()=>fitOpen();
   addEventListener('pointerdown',audioInit,{passive:true});
   document.body.addEventListener('click',e=>{
-    const t=e.target.closest('[data-open],[data-route],[data-buy],[data-sell],[data-shelter],[data-close],[data-tutnext],[data-tutskip],[data-tut],[data-reset],[data-saveg],[data-f],[data-assignidle],[data-close-route],[data-fare],[data-sub],[data-bus],[data-tow],[data-maint],[data-maintall],[data-livery],[data-hire],[data-fire],[data-unassign],[data-depot],[data-goto],[data-up],[data-borrow],[data-repay],[data-claim],[data-accept],[data-opt],[data-fs],[data-create],[data-ccancel],[data-cundo],[data-cdone],[data-cok],[data-stop]');
+    const t=e.target.closest('[data-open],[data-route],[data-buy],[data-sell],[data-shelter],[data-close],[data-tutnext],[data-tutskip],[data-tut],[data-reset],[data-saveg],[data-f],[data-assignidle],[data-close-route],[data-fare],[data-sub],[data-bus],[data-tow],[data-maint],[data-maintall],[data-livery],[data-hire],[data-fire],[data-unassign],[data-depot],[data-goto],[data-up],[data-borrow],[data-repay],[data-claim],[data-accept],[data-opt],[data-fs],[data-create],[data-ccancel],[data-cundo],[data-cdone],[data-cok],[data-stop],[data-cab]');
     if(!t||t.disabled) return; const ds=t.dataset; if(t.tagName==='BUTTON') sfx('click');
     if(ds.open!==undefined){ e.stopPropagation(); openRoute(ds.open); }
     else if(ds.tow){ e.stopPropagation(); const b=S.buses.find(x=>x.id===+ds.tow); if(b){ towBus(b,false); refreshSheet(); } }
@@ -983,6 +1334,7 @@ function bindUI(){
     else if(ds.cundo!==undefined){ if(createMode.geo){ createMode.geo=null; setPreview(null); } else createMode.stops.pop(); viewDirty=true; renderCreate(); }
     else if(ds.cdone!==undefined) finishCreate();
     else if(ds.cok!==undefined) confirmCreate();
+    else if(ds.cab){ e.stopPropagation(); const [id,seat]=ds.cab.split(':'); enterCab(+id,seat||'driver'); }
     else if(ds.stop) showStop(+ds.stop);
     else if(ds.bus) showBus(+ds.bus);
     else if(ds.route) showRoute(ds.route);
@@ -992,7 +1344,7 @@ function bindUI(){
     else if(ds.shift) setShift(+ds.shift,s.value);
     else if(ds.drvbus) assignDriver(+ds.drvbus,s.value||null);
     else if(ds.adddrv&&s.value) assignDriver(+s.value,+ds.adddrv); });
-  $('.grab').onclick=closeSheet;
+  $('.grab').onclick=closeSheet; bindCab();
   let y0=null; $('#sheet').addEventListener('touchstart',e=>{ if($('#sheet-body').scrollTop<=0) y0=e.touches[0].clientY; },{passive:true});
   $('#sheet').addEventListener('touchmove',e=>{ if(y0!==null&&e.touches[0].clientY-y0>70){ y0=null; closeSheet(); } },{passive:true});
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); }); addEventListener('pagehide',save);
@@ -1016,9 +1368,10 @@ async function boot(){
   bindUI(); updateSat(1); updateHud(); updTicker();
   $('#loading').style.opacity=0; setTimeout(()=>$('#loading').remove(),500);
   if(!S.seen.tut) showTut(0); else if(upgraded||!S.seen.v3) showWhatsNew();
-  S.seen.v3=1; save();
+  if(S.seen.tut&&S.seen.v3&&!S.seen.v4) setTimeout(()=>notify('Mới: Góc nhìn trong xe! Chọn một xe buýt rồi bấm "Vào xe" để ngồi ghế tài xế hoặc ghế khách','bus'),1500);
+  S.seen.v3=1; S.seen.v4=1; save();
   setInterval(save,10000);
-  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,finishCreate,confirmCreate,get map(){return map;}};
+  window.__game={get S(){return S;},D,MODELS,step,openRoute,buyBus,routeById,breakdown,newDay,hourly,startCreate,createToggle,enterCab,exitCab,setSeat,toggleReal,get cab(){return cab;},finishCreate,confirmCreate,get map(){return map;}};
   requestAnimationFrame(frame);
 }
 boot().catch(e=>{ const p=$('#loading p'); if(p) p.textContent='Lỗi tải game: '+e.message; console.error(e); });

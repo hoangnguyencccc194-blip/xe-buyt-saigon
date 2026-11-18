@@ -7,7 +7,7 @@
 <title>Xe Buýt Sài Gòn – Game quản lý xe buýt TP.HCM</title>
 <link rel="icon" href="assets/icon.svg">
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div id="map"></div>
@@ -34,6 +34,7 @@
   </div>
   <div id="ticker" role="marquee" aria-label="Tin tức"><b data-ic="news" data-s="18"></b><div class="tk"><span></span></div></div>
   <div id="event" class="hidden"></div>
+  <button id="cabgo" class="hidden" data-cab=""><span class="cgi"></span>Vào xe <b id="cabgoid"></b> · Góc nhìn trong xe</button>
 </header>
 
 <div class="fab">
@@ -52,11 +53,13 @@
   <button data-tab="more" data-ic="gear" data-s="28">Thêm<span id="moredot" class="tdot"></span></button>
 </nav>
 
+<div id="cab" class="hidden"></div>
 <div id="toasts"></div>
 <div id="modal" class="hidden"></div>
 <div id="loading"><div class="logo"><img src="assets/icon.svg" width="96" height="96" alt=""></div><h1>Xe Buýt Sài Gòn</h1><p>Đang tải bản đồ và tuyến thật…</p></div>
 <script src="vendor/maplibre-gl.js"></script>
-<script src="js/icons.js?v=3"></script>
-<script src="js/game.js?v=3"></script>
+<script src="js/icons.js?v=4"></script>
+<script src="js/config.js?v=4"></script>
+<script src="js/game.js?v=4"></script>
 </body>
 </html>

@@ -1,0 +1,1 @@
+window.XB_CONFIG={mapillaryToken:"MLY|29136166212713399|2f1fca633b2590cad7e76146a886cba4"};
